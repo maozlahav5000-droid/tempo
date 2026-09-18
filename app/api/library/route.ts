@@ -1,7 +1,7 @@
 import {
   addLibraryFile,
   deleteLibraryFile,
-  getLibraryBucket,
+  getLibraryStorage,
   getLibraryFile,
   getLibraryFolder,
   listLibraryFiles,
@@ -10,7 +10,9 @@ import {
   type LibrarySection,
 } from "../../../db/library";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+// Workers KV limits a single value to 25 MiB. Keep headroom for platform
+// validation and fail before attempting a write that KV cannot accept.
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const ALLOWED_CONTENT_TYPES = new Set([
   "application/pdf",
   "image/jpeg",
@@ -53,16 +55,15 @@ export async function GET(request: Request) {
       const record = await getLibraryFile(fileId);
       if (!record) return Response.json({ error: "הקובץ לא נמצא." }, { status: 404 });
 
-      const object = await getLibraryBucket().get(record.storageKey);
-      if (!object?.body) return Response.json({ error: "תוכן הקובץ לא נמצא." }, { status: 404 });
+      const body = await getLibraryStorage().get(record.storageKey, { type: "stream" });
+      if (!body) return Response.json({ error: "תוכן הקובץ לא נמצא." }, { status: 404 });
 
       const headers = new Headers();
       headers.set("Content-Type", record.contentType);
       headers.set("Content-Length", String(record.size));
       headers.set("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(record.name)}`);
       headers.set("Cache-Control", "private, no-store");
-      if (object.httpEtag) headers.set("ETag", object.httpEtag);
-      return new Response(object.body, { headers });
+      return new Response(body, { headers });
     }
 
     const [files, folders] = await Promise.all([listLibraryFiles(), listLibraryFolders()]);
@@ -95,19 +96,16 @@ export async function POST(request: Request) {
       return Response.json({ error: "אפשר להעלות PDF, JPG, PNG או WebP בלבד." }, { status: 400 });
     }
     if (upload.size === 0 || upload.size > MAX_FILE_SIZE) {
-      return Response.json({ error: "גודל הקובץ חייב להיות עד 50MB." }, { status: 400 });
+      return Response.json({ error: "גודל הקובץ חייב להיות עד 20MB." }, { status: 400 });
     }
 
     const id = crypto.randomUUID();
     const storageKey = `practice-library/${id}`;
     const name = upload.name.trim().slice(0, 180) || "קובץ ללא שם";
     const createdAt = new Date().toISOString();
-    const bucket = getLibraryBucket();
+    const storage = getLibraryStorage();
 
-    await bucket.put(storageKey, upload.stream(), {
-      httpMetadata: { contentType },
-      customMetadata: { originalName: name },
-    });
+    await storage.put(storageKey, upload.stream());
 
     try {
       const file = await addLibraryFile({
@@ -122,7 +120,7 @@ export async function POST(request: Request) {
       });
       return Response.json({ file: publicFile(file) }, { status: 201 });
     } catch (error) {
-      await bucket.delete(storageKey);
+      await storage.delete(storageKey);
       throw error;
     }
   } catch (error) {

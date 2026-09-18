@@ -42,7 +42,7 @@ type LibraryRow = {
 
 type LibraryBindings = {
   DB?: D1Database;
-  FILES?: R2Bucket;
+  FILES?: KVNamespace;
 };
 
 let schemaReady: Promise<void> | null = null;
@@ -52,7 +52,7 @@ function getBindings() {
   if (!bindings.DB || !bindings.FILES) {
     throw new Error("מאגר הקבצים אינו זמין כרגע.");
   }
-  return { db: bindings.DB, bucket: bindings.FILES };
+  return { db: bindings.DB, storage: bindings.FILES };
 }
 
 function mapFolderRow(row: FolderRow): LibraryFolderRecord {
@@ -78,8 +78,8 @@ function mapFileRow(row: LibraryRow): LibraryFileRecord {
   };
 }
 
-export function getLibraryBucket() {
-  return getBindings().bucket;
+export function getLibraryStorage() {
+  return getBindings().storage;
 }
 
 async function initializeLibrarySchema() {
@@ -306,8 +306,8 @@ export async function deleteLibraryFile(id: string) {
   const file = await getLibraryFile(id);
   if (!file) return false;
 
-  const { db, bucket } = getBindings();
-  await bucket.delete(file.storageKey);
+  const { db, storage } = getBindings();
+  await storage.delete(file.storageKey);
   await db.prepare("DELETE FROM practice_files WHERE id = ?").bind(id).run();
   return true;
 }

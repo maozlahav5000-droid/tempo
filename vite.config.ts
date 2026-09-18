@@ -3,31 +3,33 @@ import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 
-const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
-  "00000000-0000-4000-8000-000000000000";
+const TEMPO_DATABASE_ID = "9f1a7fa5-70c6-44d9-a4c9-762400140e36";
+const TEMPO_DATABASE_NAME = "tempo-db";
+const TEMPO_FILES_NAMESPACE_ID = "155f4208473346448320c6e91b477276";
 
-const { d1, r2 } = hostingConfig;
+const { d1, kv } = hostingConfig;
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
 const localBindingConfig = {
+  name: "tempo",
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
   d1_databases: d1
     ? [
         {
           binding: d1,
-          database_name: "site-creator-d1",
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          database_name: TEMPO_DATABASE_NAME,
+          database_id: TEMPO_DATABASE_ID,
         },
       ]
     : [],
-  r2_buckets: r2
+  kv_namespaces: kv
     ? [
         {
-          binding: r2,
-          bucket_name: "site-creator-r2",
+          binding: kv,
+          id: TEMPO_FILES_NAMESPACE_ID,
         },
       ]
     : [],

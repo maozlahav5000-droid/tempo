@@ -6,7 +6,7 @@ import ProjectsView, { type ProjectId } from "./components/ProjectsView";
 const MIN_BPM = 40;
 const MAX_BPM = 240;
 const BPM_PRESETS = [50, 60] as const;
-const MAX_LIBRARY_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_LIBRARY_FILE_SIZE = 20 * 1024 * 1024;
 const METER_OPTIONS = [7, 6, 5, 4, 3, 2, 1] as const;
 const BEAT_UNIT_OPTIONS = [16, 8, 4, 2, 1] as const;
 type BeatsPerBar = (typeof METER_OPTIONS)[number];
@@ -1063,7 +1063,7 @@ export default function Home() {
           continue;
         }
         if (file.size === 0 || file.size > MAX_LIBRARY_FILE_SIZE) {
-          failures.push(`${file.name}: גודל הקובץ חייב להיות עד 50MB`);
+          failures.push(`${file.name}: גודל הקובץ חייב להיות עד 20MB`);
           continue;
         }
 

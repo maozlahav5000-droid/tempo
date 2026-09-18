@@ -5,6 +5,8 @@ import handler from "vinext/server/app-router-entry";
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  FILES: KVNamespace;
+  TEMPO_ACCESS_TOKEN?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -12,6 +14,52 @@ interface Env {
       };
     };
   };
+}
+
+const ACCESS_COOKIE = "tempo_cloud_access";
+
+function hasAccessCookie(cookieHeader: string | null, accessToken: string) {
+  return (cookieHeader ?? "")
+    .split(";")
+    .map((part) => part.trim())
+    .some((part) => part === `${ACCESS_COOKIE}=${accessToken}`);
+}
+
+function accessRequiredResponse(request: Request) {
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/api/")) {
+    return Response.json({ error: "נדרש קישור הגישה הפרטי של TEMPO." }, {
+      status: 401,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
+  const body = `<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0f0d">
+  <title>TEMPO — גישה פרטית</title>
+</head>
+<body style="margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;box-sizing:border-box;color:#f5f7f6;background:#0a0f0d;font-family:Arial,sans-serif;text-align:center">
+  <main style="max-width:420px;border:1px solid #2b3833;border-radius:22px;background:#121a17;padding:28px">
+    <div style="font-size:42px" aria-hidden="true">♪</div>
+    <h1 style="margin:12px 0 8px">נדרש קישור הגישה של TEMPO</h1>
+    <p style="margin:0;color:#a8b5af;line-height:1.7">יש לפתוח את הקישור הפרטי המלא שנוצר עבור האתר.</p>
+  </main>
+</body>
+</html>`;
+  return new Response(body, {
+    status: 401,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
 }
 
 interface ExecutionContext {
@@ -28,6 +76,34 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const accessToken = env.TEMPO_ACCESS_TOKEN?.trim();
+
+    // Keep the first cloud deployment closed even before the secret is added.
+    // Local development remains available without a token.
+    if (!accessToken && url.hostname.endsWith(".workers.dev")) {
+      return accessRequiredResponse(request);
+    }
+
+    if (accessToken) {
+      const queryToken = url.searchParams.get("access");
+      if (queryToken === accessToken) {
+        url.searchParams.delete("access");
+        const cleanLocation = `${url.pathname}${url.search}${url.hash}` || "/";
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: cleanLocation,
+            "Set-Cookie": `${ACCESS_COOKIE}=${accessToken}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=31536000`,
+            "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+          },
+        });
+      }
+
+      if (!hasAccessCookie(request.headers.get("Cookie"), accessToken)) {
+        return accessRequiredResponse(request);
+      }
+    }
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
