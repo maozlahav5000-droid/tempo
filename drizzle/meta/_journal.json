@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1787318147890,
+      "tag": "0000_early_marauders",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787319371363,
+      "tag": "0001_milky_hydra",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787472342803,
+      "tag": "0002_military_anita_blake",
+      "breakpoints": true
+    }
+  ]
+}

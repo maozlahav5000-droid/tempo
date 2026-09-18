@@ -1,0 +1,883 @@
+:root {
+  color-scheme: light;
+  --page: #f5f0e9;
+  --page-deep: #ebe2d7;
+  --surface: rgba(255, 252, 247, 0.94);
+  --surface-solid: #fffdf9;
+  --surface-soft: #f5eee7;
+  --sheet: #fffefb;
+  --ink: #201b1d;
+  --ink-soft: #6f6568;
+  --line: rgba(82, 56, 62, 0.16);
+  --line-strong: rgba(82, 56, 62, 0.28);
+  --accent: #762b40;
+  --accent-strong: #591d2e;
+  --accent-soft: #f4dfe5;
+  --accent-ink: #fffaf8;
+  --gold: #b98643;
+  --danger: #b23d33;
+  --shadow: 0 22px 64px rgba(71, 44, 50, 0.13);
+  --shadow-soft: 0 8px 24px rgba(71, 44, 50, 0.08);
+
+  --background: var(--page);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-solid);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-ink);
+  --secondary: var(--surface-solid);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-soft);
+  --muted-foreground: var(--ink-soft);
+  --input: var(--line-strong);
+  --ring: rgba(118, 43, 64, 0.3);
+  --destructive: var(--danger);
+  --viz-series-1: var(--accent);
+  --font-size-base: 16px;
+  --font-size-normal: 16px;
+  --font-size-small: 14px;
+  --font-size-h1: 30px;
+  --font-size-h2: 24px;
+  --font-size-h3: 20px;
+  --line-height-normal: 1.55;
+  --line-height-small: 1.45;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #171315;
+    --page-deep: #21191c;
+    --surface: rgba(34, 27, 30, 0.95);
+    --surface-solid: #2a2225;
+    --surface-soft: #30272a;
+    --sheet: #201a1c;
+    --ink: #fff8f4;
+    --ink-soft: #c9bbbe;
+    --line: rgba(255, 241, 235, 0.11);
+    --line-strong: rgba(255, 241, 235, 0.21);
+    --accent: #df8da4;
+    --accent-strong: #f1b2c3;
+    --accent-soft: #482b34;
+    --accent-ink: #27151b;
+    --gold: #deb879;
+    --danger: #ff9388;
+    --shadow: 0 24px 72px rgba(0, 0, 0, 0.34);
+    --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.24);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-inline-size: 320px;
+  scroll-behavior: smooth;
+}
+
+html.project-embed-document {
+  min-inline-size: 0;
+}
+
+body {
+  min-block-size: 100vh;
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 88% 4%, rgba(185, 134, 67, 0.18), transparent 30rem),
+    radial-gradient(circle at 8% 26%, rgba(118, 43, 64, 0.13), transparent 34rem),
+    linear-gradient(155deg, var(--page), var(--page-deep));
+  font-family: "Segoe UI", "Rubik", "Heebo", "Noto Sans Hebrew", Arial, sans-serif;
+  font-size: var(--font-size-normal);
+  line-height: var(--line-height-normal);
+  letter-spacing: normal;
+  word-spacing: 0.04em;
+  text-align: start;
+  scrollbar-gutter: stable;
+}
+
+button,
+input,
+select,
+output {
+  font: inherit;
+}
+
+button,
+select,
+input[type="range"],
+input[type="checkbox"] {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+::selection {
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.page-glow {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent 78%);
+}
+
+.site-shell {
+  inline-size: min(100% - 32px, 1240px);
+  margin-inline: auto;
+  padding-block: 22px 28px;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-block-end: 26px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  inline-size: 46px;
+  block-size: 46px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 15px;
+  color: var(--accent-ink);
+  background: linear-gradient(145deg, var(--accent), var(--accent-strong));
+  box-shadow: var(--shadow-soft);
+  font-family: Georgia, serif;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.brand > span:last-child {
+  display: grid;
+  gap: 1px;
+}
+
+.brand strong {
+  font-size: 19px;
+  line-height: 1.15;
+}
+
+.brand small {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.site-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 7px;
+  padding-inline: 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--surface-solid) 78%, transparent);
+  font-size: 13px;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
+}
+
+.site-status > span {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: #55a76a;
+  box-shadow: 0 0 0 4px rgba(85, 167, 106, 0.13);
+}
+
+.hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 22px;
+  margin-block-end: 18px;
+  padding-inline: clamp(4px, 2vw, 18px);
+}
+
+.eyebrow {
+  margin: 0 0 5px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.hero-copy {
+  max-inline-size: 680px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: clamp(16px, 2vw, 20px);
+  line-height: 1.55;
+  text-wrap: balance;
+}
+
+.song-facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.song-facts span {
+  padding-block: 7px;
+  padding-inline: 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--surface-solid) 74%, transparent);
+  font-size: 13px;
+  white-space: nowrap;
+  backdrop-filter: blur(12px);
+}
+
+.player-stage {
+  position: relative;
+}
+
+.player-stage::before {
+  position: absolute;
+  z-index: -1;
+  inset-block: 22px -12px;
+  inset-inline: 26px;
+  border-radius: 36px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  filter: blur(24px);
+  content: "";
+}
+
+.site-footer {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding-block: 22px 2px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+noscript {
+  display: block;
+  margin: 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--danger);
+  background: var(--surface-solid);
+  text-align: center;
+}
+
+/* Standalone equivalents for the controls used by the practice player. */
+.card {
+  min-inline-size: 0;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.text-small {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-destructive {
+  color: var(--danger);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.btn {
+  display: inline-flex;
+  min-block-size: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0;
+  padding-block: 8px;
+  padding-inline: 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  color: var(--ink);
+  background: var(--surface-solid);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 40%, var(--surface-solid));
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible,
+.form-range:focus-visible,
+.form-check-input:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--accent-ink);
+  background: linear-gradient(145deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.btn-primary:hover {
+  border-color: transparent;
+  background: linear-gradient(145deg, var(--accent-strong), var(--accent));
+}
+
+.btn-ghost {
+  min-block-size: 36px;
+  padding-block: 6px;
+  padding-inline: 10px;
+  border-color: transparent;
+  color: var(--ink-soft);
+  background: transparent;
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.btn-ghost[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background: var(--accent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.form-label {
+  display: block;
+  margin-block-end: 7px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.form-control,
+.form-select {
+  inline-size: 100%;
+  min-block-size: 42px;
+  padding-block: 7px;
+  padding-inline: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--surface-solid);
+  outline: none;
+  text-align: start;
+}
+
+.form-control:hover,
+.form-select:hover {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  inline-size: 100%;
+  block-size: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  accent-color: var(--accent);
+  background: linear-gradient(var(--line-strong), var(--line-strong)) center / 100% 4px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  block-size: 32px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  inline-size: 20px;
+  block-size: 20px;
+  margin-block-start: 6px;
+  border: 3px solid var(--surface-solid);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--line-strong), 0 4px 12px rgba(72, 35, 44, 0.2);
+}
+
+.form-range::-moz-range-track {
+  block-size: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.form-range::-moz-range-thumb {
+  inline-size: 16px;
+  block-size: 16px;
+  border: 3px solid var(--surface-solid);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+
+.form-check {
+  display: flex;
+  min-block-size: 32px;
+  align-items: center;
+  gap: 9px;
+}
+
+.form-check-input {
+  appearance: none;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-soft);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  inline-size: 42px;
+  block-size: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-soft) 22%, transparent);
+  transition: background-color 160ms ease;
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 3px;
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: 50%;
+  background: var(--surface-solid);
+  box-shadow: 0 2px 6px rgba(40, 24, 29, 0.22);
+  content: "";
+  transform: translateY(-50%);
+  transition: inset-inline-start 160ms ease;
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--accent);
+}
+
+.form-switch .form-check-input:checked::before {
+  inset-inline-start: 21px;
+}
+
+.form-check-label {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+/* Practice player design. */
+body #violin-practice-player {
+  inline-size: 100%;
+  color: var(--ink);
+}
+
+body #violin-practice-player .vp-player {
+  display: grid;
+  gap: clamp(15px, 2.1vw, 24px);
+  inline-size: 100%;
+  max-inline-size: none;
+  padding: clamp(16px, 2.4vw, 30px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 30px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(22px);
+}
+
+body #violin-practice-player .vp-header {
+  align-items: center;
+  padding-block-end: 18px;
+  border-block-end: 1px solid var(--line);
+}
+
+body #violin-practice-player .vp-heading {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(26px, 3.5vw, 42px);
+  font-weight: 760;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+body #violin-practice-player .vp-now {
+  margin-block-start: 10px;
+  color: var(--ink-soft);
+}
+
+body #violin-practice-player .vp-note-name {
+  color: var(--accent);
+  font-size: 29px;
+  font-weight: 760;
+  line-height: 1.1;
+}
+
+body #violin-practice-player .vp-note-latin {
+  color: var(--accent);
+  font-size: 19px;
+  font-weight: 700;
+}
+
+body #violin-practice-player .vp-actions {
+  flex: 0 0 auto;
+}
+
+body #violin-practice-player #vp-source-facts {
+  padding-block: 10px;
+  padding-inline: 14px;
+  border-radius: 13px;
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+}
+
+body #violin-practice-player .vp-score-header {
+  align-items: baseline;
+}
+
+body #violin-practice-player .vp-score-header strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+body #violin-practice-player .vp-fingering-guide {
+  color: var(--ink-soft);
+}
+
+body #violin-practice-player .vp-score-mount {
+  min-block-size: 220px;
+  padding-block: 16px;
+  padding-inline: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  color: var(--ink);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--gold) 5%, transparent), transparent 25%),
+    var(--sheet);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), var(--shadow-soft);
+}
+
+body #violin-practice-player .vp-score-svg {
+  color: inherit;
+}
+
+body #violin-practice-player .vp-seek-control {
+  padding-block: 15px 12px;
+  padding-inline: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-solid) 70%, transparent);
+}
+
+body #violin-practice-player .vp-time-row {
+  color: var(--ink-soft);
+}
+
+body #violin-practice-player .vp-sections {
+  gap: 7px;
+  margin-block-start: 10px;
+  padding-block-start: 10px;
+  border-block-start: 1px solid var(--line);
+}
+
+body #violin-practice-player .vp-section-button {
+  inline-size: 100%;
+  max-inline-size: none;
+  min-inline-size: 0;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+body #violin-practice-player .vp-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(250px, 0.55fr);
+  align-items: stretch;
+  gap: 16px;
+}
+
+body #violin-practice-player .vp-playback-controls,
+body #violin-practice-player .vp-loop-control {
+  min-inline-size: 0;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-solid) 76%, transparent);
+}
+
+body #violin-practice-player .vp-playback-controls {
+  display: grid;
+  gap: 15px;
+}
+
+body #violin-practice-player .vp-loop-control {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 15px;
+}
+
+body #violin-practice-player .vp-loop-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+body #violin-practice-player .vp-loop-fields .form-label {
+  margin: 0;
+}
+
+body #violin-practice-player #vp-status {
+  padding-block-start: 2px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+body #violin-practice-player #vp-error {
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+@media (max-width: 840px) {
+  .site-shell {
+    inline-size: min(100% - 22px, 1240px);
+  }
+
+  .hero {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .song-facts {
+    justify-content: flex-start;
+  }
+
+  body #violin-practice-player .vp-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .site-shell {
+    inline-size: min(100% - 14px, 1240px);
+    padding-block-start: 12px;
+  }
+
+  .site-header {
+    margin-block-end: 20px;
+  }
+
+  .brand small,
+  .site-status {
+    display: none;
+  }
+
+  .brand-mark {
+    inline-size: 40px;
+    block-size: 40px;
+    border-radius: 13px;
+  }
+
+  .hero {
+    margin-block-end: 13px;
+    padding-inline: 5px;
+  }
+
+  .hero-copy {
+    font-size: 16px;
+  }
+
+  .song-facts {
+    gap: 5px;
+  }
+
+  .song-facts span {
+    padding-block: 5px;
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  body #violin-practice-player .vp-player {
+    gap: 15px;
+    padding: 14px;
+    border-radius: 22px;
+  }
+
+  body #violin-practice-player .vp-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body #violin-practice-player .vp-heading {
+    font-size: 28px;
+  }
+
+  body #violin-practice-player .vp-actions {
+    inline-size: 100%;
+  }
+
+  body #violin-practice-player .vp-actions .btn {
+    flex: 1 1 0;
+  }
+
+  body.project-embed .btn,
+  body.project-embed .btn-ghost,
+  body.project-embed .form-control,
+  body.project-embed .form-select,
+  body.project-embed .form-check {
+    min-block-size: 44px;
+  }
+
+  body.project-embed .form-range {
+    block-size: 44px;
+    touch-action: pan-y;
+  }
+
+  body.project-embed .form-range::-webkit-slider-runnable-track {
+    block-size: 44px;
+  }
+
+  body.project-embed .form-range::-webkit-slider-thumb {
+    margin-block-start: 12px;
+  }
+
+  body #violin-practice-player .vp-score-mount {
+    min-block-size: 180px;
+    padding-inline: 8px;
+  }
+
+  body #violin-practice-player .vp-sections {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body #violin-practice-player .vp-loop-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .site-footer {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 360px) {
+  body.project-embed #violin-practice-player .vp-player {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  body.project-embed #violin-practice-player .vp-score-mount {
+    min-block-size: 160px;
+    padding-inline: 6px;
+  }
+
+  body.project-embed #violin-practice-player .vp-seek-control,
+  body.project-embed #violin-practice-player .vp-playback-controls,
+  body.project-embed #violin-practice-player .vp-loop-control {
+    padding-inline: 12px;
+  }
+}
+
+/* Embedded presentation inside the TEMPO projects workspace. */
+body.project-embed {
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
+  max-inline-size: 100%;
+  overflow-x: clip;
+  background: var(--page);
+  scrollbar-gutter: auto;
+}
+
+.project-embed .page-glow,
+.project-embed .site-header,
+.project-embed .hero,
+.project-embed .site-footer {
+  display: none;
+}
+
+.project-embed .site-shell {
+  inline-size: 100%;
+  padding: 0;
+}
+
+.project-embed .player-stage::before {
+  display: none;
+}
+
+body.project-embed #violin-practice-player .vp-player {
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
+  min-inline-size: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
