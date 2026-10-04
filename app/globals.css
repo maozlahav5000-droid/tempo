@@ -295,7 +295,7 @@ button, a { touch-action: manipulation; }
 .rich-notes-editor { width: 100%; min-height: 420px; flex: 1; overflow-wrap: anywhere; border: 0; outline: 0; color: var(--paper-ink); caret-color: #126c57; background: repeating-linear-gradient(to bottom, transparent 0 35px, #e9e8e2 36px); padding: 26px 4px; font-size: 1.08rem; line-height: 36px; text-align: start; unicode-bidi: plaintext; white-space: pre-wrap; }
 .rich-notes-editor[data-empty="true"]::before { color: #9ba29e; content: attr(data-placeholder); pointer-events: none; }
 .rich-notes-editor u { text-decoration-thickness: 1.5px; text-underline-offset: 0.14em; }
-.rich-notes-editor ul { margin-block: 0; padding-inline-start: 1.45em; list-style-position: outside; }
+.rich-notes-editor ul { margin-block: 0; padding-inline-start: 1.45em; list-style-position: outside; list-style-type: disc; }
 .rich-notes-editor li { margin-block: 0; padding-inline-start: 0.25em; }
 .rich-notes-editor li::marker { color: #16866d; font-size: 1.45em; }
 .notes-empty-state { display: grid; min-height: 480px; place-content: center; justify-items: center; text-align: center; }

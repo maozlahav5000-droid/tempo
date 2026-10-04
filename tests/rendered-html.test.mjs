@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const hebrewRtlDocument =
@@ -52,4 +53,17 @@ test("server-renders the current metronome controls", async () => {
   assert.match(html, /aria-label="מהירות המטרונום ב־BPM"/);
   assert.match(html, /<legend>משקל<\/legend>/);
   assert.match(html, /60 BPM · 4\/4/);
+});
+
+test("keeps lesson-note bullets visible after the Tailwind list reset", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(
+    css,
+    /\.rich-notes-editor ul\s*\{[^}]*\blist-style-type:\s*disc\s*;/,
+  );
+  assert.match(
+    css,
+    /\.rich-notes-editor li::marker\s*\{[^}]*\bcolor:\s*#16866d\s*;/i,
+  );
 });
