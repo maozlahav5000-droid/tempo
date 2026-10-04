@@ -1432,7 +1432,7 @@ export default function Home() {
     && (activeFolderFilter === ALL_FOLDERS || file.folderId === activeFolderFilter)
   ));
   const activeSheetFile = libraryFiles.find((file) => file.id === selectedSheetId) ?? null;
-  const activeSheetLabel = activeSheetSection === "warmup" ? "תרגיל חימום" : "תרגול";
+  const activeSheetLabel = activeSheetSection === "warmup" ? "חימום" : "תרגול";
   const activeFolder = libraryFolders.find((folder) => folder.id === activeFolderFilter) ?? null;
   const activeFolderLabel = activeFolderFilter === ALL_FOLDERS
     ? activeSheetLabel
@@ -1763,7 +1763,7 @@ export default function Home() {
                 <aside className="library-panel" aria-label="קבצי תווים לפי סוג תרגול" aria-busy={libraryLoading || librarySaving}>
                   <div className="library-section-switch" role="group" aria-label="סוג התרגול">
                     {(["warmup", "practice"] as const).map((section) => {
-                      const label = section === "warmup" ? "תרגיל חימום" : "תרגול";
+                      const label = section === "warmup" ? "חימום" : "תרגול";
                       const count = libraryFiles.filter((file) => file.section === section).length;
                       return (
                         <button
@@ -1810,7 +1810,7 @@ export default function Home() {
                         value={folderForm.section}
                         onChange={(event) => setFolderForm((current) => current ? { ...current, section: event.target.value as SheetSection } : current)}
                       >
-                        <option value="warmup">תרגיל חימום</option>
+                        <option value="warmup">חימום</option>
                         <option value="practice">תרגול</option>
                       </select>
                       <div className="editor-actions">
@@ -1923,7 +1923,7 @@ export default function Home() {
                                       folderId: "",
                                     } : current)}
                                   >
-                                    <option value="warmup">תרגיל חימום</option>
+                                    <option value="warmup">חימום</option>
                                     <option value="practice">תרגול</option>
                                   </select>
                                 </label>
