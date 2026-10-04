@@ -87,7 +87,7 @@ const NOTE_FORMATS = [
 
 type NoteFormatCommand = (typeof NOTE_FORMATS)[number]["command"];
 
-const SAFE_NOTE_TAGS = new Set(["P", "DIV", "BR", "B", "STRONG", "I", "EM", "U"]);
+const SAFE_NOTE_TAGS = new Set(["P", "DIV", "BR", "B", "STRONG", "I", "EM", "U", "UL", "LI"]);
 const DROP_NOTE_TAGS = new Set([
   "SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "LINK", "META", "IMG", "SVG", "MATH", "FORM", "INPUT", "BUTTON",
 ]);
@@ -118,6 +118,137 @@ function sanitizeNoteHtml(input: string) {
   const container = output.createElement("div");
   for (const node of Array.from(source.body.childNodes)) appendSanitizedNoteNode(node, container, output);
   return container.innerHTML;
+}
+
+function stripLeadingStarMarker(root: Node) {
+  const text = root.textContent ?? "";
+  const marker = text.match(/^[\s\u00a0]*\*(?:[\t \u00a0]+|$)/u)?.[0];
+  if (!marker) return false;
+
+  const walker = root.ownerDocument?.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  if (!walker) return false;
+  let remaining = marker.length;
+  let textNode = walker.nextNode();
+  while (textNode && remaining > 0) {
+    const value = textNode.textContent ?? "";
+    if (remaining >= value.length) {
+      remaining -= value.length;
+      textNode.textContent = "";
+    } else {
+      textNode.textContent = value.slice(remaining);
+      remaining = 0;
+    }
+    textNode = walker.nextNode();
+  }
+  return remaining === 0;
+}
+
+function normalizeStarredNoteLines(input: string) {
+  const safeHtml = sanitizeNoteHtml(input);
+  if (!safeHtml || typeof DOMParser === "undefined" || typeof document === "undefined") return safeHtml;
+
+  const source = new DOMParser().parseFromString(safeHtml, "text/html");
+  const output = document.implementation.createHTMLDocument("");
+  const container = output.createElement("div");
+  let activeList: HTMLUListElement | null = null;
+  let inlineNodes: Node[] = [];
+
+  const appendLine = (line: HTMLElement) => {
+    if (stripLeadingStarMarker(line)) {
+      if (!activeList) {
+        activeList = output.createElement("ul");
+        container.appendChild(activeList);
+      }
+      const item = output.createElement("li");
+      while (line.firstChild) item.appendChild(line.firstChild);
+      if (!item.childNodes.length) item.appendChild(output.createElement("br"));
+      activeList.appendChild(item);
+      return;
+    }
+
+    activeList = null;
+    container.appendChild(line);
+  };
+
+  const flushInlineNodes = (preserveEmptyLine = false) => {
+    if (!inlineNodes.length && !preserveEmptyLine) return;
+    const line = output.createElement("div");
+    for (const node of inlineNodes) line.appendChild(node);
+    if (!line.childNodes.length) line.appendChild(output.createElement("br"));
+    inlineNodes = [];
+    appendLine(line);
+  };
+
+  const processNodes = (nodes: Node[]): void => {
+    for (const child of nodes) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const element = child as Element;
+        if (element.tagName === "UL") {
+          flushInlineNodes();
+          activeList = null;
+          container.appendChild(output.importNode(element, true));
+          continue;
+        }
+        if (element.tagName === "DIV" || element.tagName === "P") {
+          flushInlineNodes();
+          const children = Array.from(element.childNodes);
+          processNodes(children);
+          if (children.length) flushInlineNodes();
+          else flushInlineNodes(true);
+          continue;
+        }
+        if (element.tagName === "BR") {
+          flushInlineNodes(true);
+          continue;
+        }
+      }
+
+      if (child.nodeType === Node.TEXT_NODE && (child.textContent ?? "").includes("\n")) {
+        const parts = (child.textContent ?? "").split("\n");
+        parts.forEach((part, index) => {
+          if (part) inlineNodes.push(output.createTextNode(part));
+          if (index < parts.length - 1) flushInlineNodes(true);
+        });
+        continue;
+      }
+
+      inlineNodes.push(output.importNode(child, true));
+    }
+  };
+
+  processNodes(Array.from(source.body.childNodes));
+  flushInlineNodes();
+  return container.innerHTML;
+}
+
+function convertStarPrefixAtCaret(editor: HTMLDivElement) {
+  const selection = document.getSelection();
+  if (!selection?.isCollapsed || !selection.anchorNode || !editor.contains(selection.anchorNode)) return false;
+  if (!document.queryCommandSupported("insertUnorderedList")) return false;
+
+  let line = selection.anchorNode.nodeType === Node.ELEMENT_NODE
+    ? selection.anchorNode as HTMLElement
+    : selection.anchorNode.parentElement;
+  while (line && line !== editor && !["DIV", "P", "LI"].includes(line.tagName)) {
+    line = line.parentElement;
+  }
+  if (!line || line.tagName === "LI") return false;
+
+  const range = selection.getRangeAt(0);
+  const prefixRange = range.cloneRange();
+  prefixRange.selectNodeContents(line);
+  try {
+    prefixRange.setEnd(selection.anchorNode, selection.anchorOffset);
+  } catch {
+    return false;
+  }
+  if (!/^[\s\u00a0]*\*$/u.test(prefixRange.toString())) return false;
+
+  selection.removeAllRanges();
+  selection.addRange(prefixRange);
+  document.execCommand("delete", false);
+  document.execCommand("insertUnorderedList", false);
+  return true;
 }
 
 function plainTextToNoteHtml(value: string) {
@@ -155,6 +286,20 @@ function formatLessonCount(count: number) {
   if (count === 0) return "אין שיעורים";
   if (count === 1) return "שיעור אחד";
   return `${count} שיעורים`;
+}
+
+function sortLessonNotes(notes: LessonNote[]) {
+  return [...notes].sort((first, second) => {
+    const firstHasDate = isLessonDate(first.lessonDate);
+    const secondHasDate = isLessonDate(second.lessonDate);
+    if (firstHasDate !== secondHasDate) return firstHasDate ? -1 : 1;
+    if (firstHasDate && secondHasDate) {
+      const dateOrder = first.lessonDate.localeCompare(second.lessonDate);
+      if (dateOrder !== 0) return dateOrder;
+    }
+    const createdOrder = first.createdAt.localeCompare(second.createdAt);
+    return createdOrder !== 0 ? createdOrder : first.id.localeCompare(second.id);
+  });
 }
 
 function formatFileSize(size: number) {
@@ -250,7 +395,7 @@ function RichNotesEditor({
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    const safeHtml = sanitizeNoteHtml(initialHtmlRef.current);
+    const safeHtml = normalizeStarredNoteLines(initialHtmlRef.current);
     editor.innerHTML = safeHtml;
     lastEmittedHtmlRef.current = safeHtml;
     setIsEmpty(!(editor.textContent ?? "").trim());
@@ -287,10 +432,25 @@ function RichNotesEditor({
         }}
         onInput={emitChange}
         onBlur={() => {
+          const editor = editorRef.current;
+          if (editor) {
+            const normalizedHtml = normalizeStarredNoteLines(editor.innerHTML);
+            if (normalizedHtml !== editor.innerHTML) editor.innerHTML = normalizedHtml;
+          }
           emitChange();
           onCommit();
         }}
         onKeyDown={(event) => {
+          if (
+            event.key === " "
+            && !(event.ctrlKey || event.metaKey || event.altKey)
+            && editorRef.current
+            && convertStarPrefixAtCaret(editorRef.current)
+          ) {
+            event.preventDefault();
+            emitChange();
+            return;
+          }
           if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
           const format = NOTE_FORMATS.find((item) => item.code === event.code);
           if (!format) return;
@@ -615,7 +775,7 @@ export default function Home() {
           if (!response.ok) throw new Error(await readApiError(response));
           const payload = (await response.json()) as { note: LessonNote };
           const newerChanges = pendingLessonChangesRef.current.get(id) ?? {};
-          setLessonEntries((current) => current.map((lesson) => {
+          setLessonEntries((current) => sortLessonNotes(current.map((lesson) => {
             if (lesson.id !== id) return lesson;
             return {
               ...lesson,
@@ -626,7 +786,7 @@ export default function Home() {
                 : {}),
               updatedAt: payload.note.updatedAt,
             };
-          }));
+          })));
         } catch (error) {
           const newerChanges = pendingLessonChangesRef.current.get(id) ?? {};
           pendingLessonChangesRef.current.set(id, { ...pendingChanges, ...newerChanges });
@@ -744,7 +904,10 @@ export default function Home() {
         notes = [payload.note];
       }
 
-      const safeNotes = notes.map((note) => ({ ...note, bodyHtml: sanitizeNoteHtml(note.bodyHtml) }));
+      const safeNotes = sortLessonNotes(notes.map((note) => ({
+        ...note,
+        bodyHtml: sanitizeNoteHtml(note.bodyHtml),
+      })));
       let preferredId: string | null = null;
       try {
         preferredId = window.localStorage.getItem(ACTIVE_LESSON_KEY);
@@ -946,11 +1109,11 @@ export default function Home() {
 
   const updateActiveLesson = (changes: LessonNoteChanges) => {
     if (!activeLessonId) return;
-    setLessonEntries((current) => current.map((lesson) => (
+    setLessonEntries((current) => sortLessonNotes(current.map((lesson) => (
       lesson.id === activeLessonId
         ? { ...lesson, ...changes, updatedAt: new Date().toISOString() }
         : lesson
-    )));
+    ))));
     queueLessonSave(activeLessonId, changes);
   };
 
@@ -978,7 +1141,7 @@ export default function Home() {
       });
       if (!response.ok) throw new Error(await readApiError(response));
       const payload = (await response.json()) as { note: LessonNote };
-      setLessonEntries((current) => [payload.note, ...current]);
+      setLessonEntries((current) => sortLessonNotes([...current, payload.note]));
       selectLesson(payload.note.id);
       if (
         lessonSaveRequestsRef.current === 0
@@ -1015,7 +1178,7 @@ export default function Home() {
       pendingLessonChangesRef.current.delete(id);
       const response = await fetch(`/api/notes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       if (!response.ok) throw new Error(await readApiError(response));
-      const remaining = lessonEntries.filter((lesson) => lesson.id !== id);
+      const remaining = sortLessonNotes(lessonEntries.filter((lesson) => lesson.id !== id));
       const nextActiveId = remaining[0]?.id ?? null;
       setLessonEntries(remaining);
       setActiveLessonId(nextActiveId);

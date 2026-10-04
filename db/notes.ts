@@ -77,8 +77,9 @@ export async function listLessonNotes() {
       FROM lesson_notes
       ORDER BY
         CASE WHEN lesson_date = '' THEN 1 ELSE 0 END,
-        lesson_date DESC,
-        updated_at DESC
+        lesson_date ASC,
+        created_at ASC,
+        id ASC
     `)
     .all<LessonNoteRow>();
   return result.results.map(mapLessonNote);
