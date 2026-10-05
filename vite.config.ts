@@ -18,7 +18,10 @@ const localBindingConfig = {
   compatibility_flags: ["nodejs_compat"],
   // Project players are otherwise served directly by Cloudflare's asset
   // router and would bypass the private-access check in worker/index.ts.
-  assets: { run_worker_first: ["/projects/*"] },
+  assets: {
+    binding: "ASSETS",
+    run_worker_first: ["/projects/*"],
+  },
   d1_databases: d1
     ? [
         {

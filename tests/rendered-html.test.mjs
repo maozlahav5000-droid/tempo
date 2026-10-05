@@ -101,6 +101,7 @@ test("routes project assets through the private-access worker", async () => {
   const wranglerConfig = JSON.parse(
     await readFile(new URL("../dist/server/wrangler.json", import.meta.url), "utf8"),
   );
+  assert.equal(wranglerConfig.assets.binding, "ASSETS");
   assert.deepEqual(wranglerConfig.assets.run_worker_first, ["/projects/*"]);
 
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -136,4 +137,13 @@ test("routes project assets through the private-access worker", async () => {
   assert.equal(authenticated.status, 200);
   assert.equal(await authenticated.text(), "protected project player");
   assert.equal(assetRequests, 1);
+
+  const missingAssets = await worker.fetch(
+    new Request(url, { headers: { cookie: "tempo_cloud_access=test-private-token" } }),
+    { TEMPO_ACCESS_TOKEN: "test-private-token" },
+    ctx,
+  );
+  assert.equal(missingAssets.status, 503);
+  assert.equal(missingAssets.headers.get("cache-control"), "no-store");
+  assert.match(await missingAssets.text(), /הפרויקט אינו זמין כרגע/);
 });
