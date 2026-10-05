@@ -1,6 +1,40 @@
 "use client";
 
-export type ProjectId = "shkiot-adumot";
+export type ProjectId = "shkiot-adumot" | "lomedet-laof";
+
+type ProjectDefinition = {
+  id: ProjectId;
+  title: string;
+  eyebrow: string;
+  description: string;
+  meta: readonly [string, string];
+  path: string;
+  frameTitle: string;
+  artTone: "green" | "rose";
+};
+
+const PROJECTS: readonly ProjectDefinition[] = [
+  {
+    id: "shkiot-adumot",
+    title: "שקיעות אדומות",
+    eyebrow: "כינור · תרגול אינטראקטיבי",
+    description: "תווים, אצבוע, האטה, לופ והחלפת סולם — במקום אחד.",
+    meta: ["מי מינור", "70 תיבות"],
+    path: "/projects/shkiot-adumot/index.html",
+    frameTitle: "נגן התרגול של שקיעות אדומות",
+    artTone: "green",
+  },
+  {
+    id: "lomedet-laof",
+    title: "לומדת לעוף",
+    eyebrow: "כינור · תרגול פזמון",
+    description: "תווים לפזמון, אצבוע, האטה, לופ והחלפת סולם — עם סימון חי.",
+    meta: ["לה מז׳ור", "9 תיבות"],
+    path: "/projects/lomedet-laof/index.html",
+    frameTitle: "נגן הפזמון של לומדת לעוף",
+    artTone: "rose",
+  },
+];
 
 type ProjectsViewProps = {
   activeProject: ProjectId | null;
@@ -13,77 +47,84 @@ export default function ProjectsView({
   onOpenProject,
   onCloseProject,
 }: ProjectsViewProps) {
+  const activeProjectData = PROJECTS.find((project) => project.id === activeProject) ?? null;
+
   return (
     <section className="view-section projects-view" aria-labelledby="projects-title">
       <header className="page-heading projects-heading">
         <div>
-          <p>{activeProject ? "מרחב תרגול אישי" : "תרגול לפי יצירה"}</p>
-          <h1 id="projects-title">{activeProject ? "שקיעות אדומות" : "פרויקטים"}</h1>
+          <p>{activeProjectData ? "מרחב תרגול אישי" : "תרגול לפי יצירה"}</p>
+          <h1 id="projects-title">{activeProjectData?.title ?? "פרויקטים"}</h1>
         </div>
 
-        {activeProject ? (
+        {activeProjectData ? (
           <button type="button" className="projects-back-button" onClick={onCloseProject}>
             <span aria-hidden="true">→</span>
             כל הפרויקטים
           </button>
         ) : (
-          <span className="projects-count">פרויקט אחד</span>
+          <span className="projects-count">{PROJECTS.length} פרויקטים</span>
         )}
       </header>
 
-      {!activeProject && (
+      {!activeProjectData && (
         <div className="projects-grid">
-          <button
-            type="button"
-            className="project-card"
-            onClick={() => onOpenProject("shkiot-adumot")}
-            aria-label="פתיחת הפרויקט שקיעות אדומות"
-          >
-            <span className="project-card-art" aria-hidden="true">
-              <span>𝄞</span>
-              <i /><i /><i />
-            </span>
+          {PROJECTS.map((project) => (
+            <button
+              key={project.id}
+              type="button"
+              className="project-card"
+              onClick={() => onOpenProject(project.id)}
+              aria-label={`פתיחת הפרויקט ${project.title}`}
+            >
+              <span
+                className={`project-card-art project-card-art--${project.artTone}`}
+                aria-hidden="true"
+              >
+                <span>𝄞</span>
+                <i /><i /><i />
+              </span>
 
-            <span className="project-card-copy">
-              <small>כינור · תרגול אינטראקטיבי</small>
-              <strong>שקיעות אדומות</strong>
-              <span>תווים, אצבוע, האטה, לופ והחלפת סולם — במקום אחד.</span>
-            </span>
+              <span className="project-card-copy">
+                <small>{project.eyebrow}</small>
+                <strong>{project.title}</strong>
+                <span>{project.description}</span>
+              </span>
 
-            <span className="project-card-meta" aria-hidden="true">
-              <span>מי מינור</span>
-              <span>70 תיבות</span>
-            </span>
+              <span className="project-card-meta" aria-hidden="true">
+                {project.meta.map((item) => <span key={item}>{item}</span>)}
+              </span>
 
-            <span className="project-card-action">
-              פתיחת הפרויקט
-              <span aria-hidden="true">←</span>
-            </span>
-          </button>
+              <span className="project-card-action">
+                פתיחת הפרויקט
+                <span aria-hidden="true">←</span>
+              </span>
+            </button>
+          ))}
         </div>
       )}
 
-      {activeProject === "shkiot-adumot" && (
-        <article className="project-workspace" aria-labelledby="red-sunsets-project-title">
+      {activeProjectData && (
+        <article
+          className="project-workspace"
+          aria-labelledby={`${activeProjectData.id}-project-title`}
+        >
           <div className="project-workspace-toolbar">
             <div>
               <span>פרויקט כינור</span>
-              <h2 id="red-sunsets-project-title">שקיעות אדומות</h2>
+              <h2 id={`${activeProjectData.id}-project-title`}>{activeProjectData.title}</h2>
             </div>
-            <a
-              href="/projects/shkiot-adumot/index.html"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a href={activeProjectData.path} target="_blank" rel="noreferrer">
               פתיחה בחלון חדש
               <span aria-hidden="true">↗</span>
             </a>
           </div>
 
           <iframe
+            key={activeProjectData.id}
             className="project-frame"
-            src="/projects/shkiot-adumot/index.html"
-            title="נגן התרגול של שקיעות אדומות"
+            src={activeProjectData.path}
+            title={activeProjectData.frameTitle}
             allow="autoplay"
           />
         </article>

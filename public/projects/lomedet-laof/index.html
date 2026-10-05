@@ -1,0 +1,1513 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>לומדת לעוף — פזמון</title>
+  <style>
+    :root {
+      --bg: #140f17;
+      --bg-soft: #201721;
+      --card: rgba(42, 30, 41, 0.94);
+      --card-strong: #30222e;
+      --surface: #fbf8f3;
+      --surface-ink: #251c24;
+      --text: #fff8fc;
+      --muted: #cabac4;
+      --line: rgba(255, 255, 255, 0.13);
+      --accent: #ee8fb2;
+      --accent-strong: #ffb0cc;
+      --accent-soft: rgba(238, 143, 178, 0.15);
+      --warning: #ffd992;
+      --danger: #ff9d9d;
+      --shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+      --radius-lg: 26px;
+      --radius-md: 16px;
+      --ui-zoom: 1;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-height: 100%; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(238, 143, 178, 0.16), transparent 31rem),
+        radial-gradient(circle at 92% 78%, rgba(167, 111, 176, 0.13), transparent 34rem),
+        linear-gradient(145deg, #100c12, var(--bg) 42%, #18101a);
+      font-family: "Segoe UI", "Noto Sans Hebrew", Arial, sans-serif;
+      line-height: 1.45;
+    }
+
+    button, input, select { font: inherit; }
+
+    button, select, input[type="range"], input[type="number"] { accent-color: var(--accent); }
+
+    button:focus-visible,
+    select:focus-visible,
+    input:focus-visible,
+    .score-event:focus-visible {
+      outline: 3px solid var(--accent-strong);
+      outline-offset: 3px;
+    }
+
+    .page {
+      width: min(100%, 1480px);
+      margin-inline: auto;
+      padding: clamp(14px, 3vw, 44px);
+      overflow: auto;
+    }
+
+    .zoom-surface {
+      min-width: min(100%, 980px);
+      zoom: var(--ui-zoom);
+    }
+
+    @supports not (zoom: 1) {
+      .zoom-surface {
+        transform: scale(var(--ui-zoom));
+        transform-origin: top right;
+      }
+    }
+
+    .player {
+      display: grid;
+      gap: 18px;
+      width: min(1180px, 100%);
+      margin-inline: auto;
+      padding: clamp(18px, 3vw, 32px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: linear-gradient(155deg, rgba(50, 35, 48, 0.97), rgba(31, 23, 31, 0.97));
+      box-shadow: var(--shadow);
+    }
+
+    .topbar,
+    .now-row,
+    .actions,
+    .facts,
+    .timeline-head,
+    .control-grid,
+    .loop-fields,
+    .score-system-head,
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar { justify-content: space-between; align-items: flex-start; }
+
+    .eyebrow {
+      margin: 0 0 3px;
+      color: var(--accent-strong);
+      font-size: 0.78rem;
+      font-weight: 750;
+      letter-spacing: 0.06em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.55rem, 3vw, 2.35rem);
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+    }
+
+    .subtitle { margin: 5px 0 0; color: var(--muted); }
+
+    .actions { flex-wrap: wrap; justify-content: flex-end; }
+
+    .btn {
+      min-height: 44px;
+      padding: 0.68rem 1rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.055);
+      cursor: pointer;
+      transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .btn-primary {
+      min-width: 94px;
+      border-color: transparent;
+      color: #25131b;
+      background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+      font-weight: 800;
+      box-shadow: 0 9px 24px rgba(238, 143, 178, 0.2);
+    }
+
+    .btn:disabled { cursor: not-allowed; opacity: 0.43; }
+
+    .now-panel {
+      display: grid;
+      gap: 4px;
+      padding: 13px 16px;
+      border: 1px solid rgba(238, 143, 178, 0.19);
+      border-radius: var(--radius-md);
+      background: linear-gradient(100deg, var(--accent-soft), rgba(255, 255, 255, 0.02));
+    }
+
+    .now-row { min-height: 40px; flex-wrap: wrap; }
+
+    .now-label { color: var(--muted); font-size: 0.86rem; }
+
+    .now-note {
+      color: var(--accent-strong);
+      font-size: 1.7rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .now-latin { direction: ltr; unicode-bidi: isolate; color: var(--muted); }
+
+    .now-technique { color: var(--text); font-size: 0.9rem; }
+
+    .facts { flex-wrap: wrap; color: var(--muted); font-size: 0.84rem; }
+
+    .fact {
+      padding: 0.28rem 0.64rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .score-wrap {
+      overflow: auto;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 20px;
+      background: var(--surface);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+    }
+
+    .score-canvas {
+      display: grid;
+      gap: 12px;
+      min-width: 850px;
+      padding: 18px;
+      color: var(--surface-ink);
+      direction: ltr;
+    }
+
+    .score-system {
+      padding: 6px 8px 8px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.72);
+      transition: background 150ms ease;
+    }
+
+    .score-system.is-current { background: #fff4f8; }
+
+    .score-system-head {
+      justify-content: space-between;
+      padding-inline: 5px;
+      color: #725f6b;
+      font-size: 0.75rem;
+      direction: rtl;
+    }
+
+    .score-svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+    .staff-line, .bar-line, .ledger-line { stroke: #332832; stroke-linecap: round; }
+    .staff-line { stroke-width: 1.45; }
+    .bar-line { stroke-width: 2; }
+    .ledger-line { stroke-width: 1.6; }
+    .measure-number { fill: #89717f; font: 600 13px "Segoe UI", Arial, sans-serif; }
+    .clef { fill: #2c222b; font: 86px "Segoe UI Symbol", "Noto Music", serif; }
+    .key-mark { fill: #2c222b; font: 31px "Segoe UI Symbol", "Noto Music", serif; }
+    .time-number { fill: #2c222b; font: 700 25px Georgia, serif; }
+    .notehead { fill: #292128; stroke: #292128; stroke-width: 2; transition: fill 120ms ease, stroke 120ms ease; }
+    .notehead.is-open { fill: #fff; }
+    .note-stem, .note-flag, .tie { fill: none; stroke: #292128; stroke-linecap: round; stroke-linejoin: round; }
+    .note-stem { stroke-width: 2.6; }
+    .note-flag { stroke-width: 3; }
+    .tie { stroke-width: 2; }
+    .dot { fill: #292128; }
+    .rest-glyph { fill: #292128; font: 39px "Segoe UI Symbol", "Noto Music", serif; }
+    .accidental { fill: #292128; font: 26px "Segoe UI Symbol", "Noto Music", serif; }
+    .finger-label { fill: #2f2530; font: 800 20px "Segoe UI", Arial, sans-serif; }
+    .pitch-label { fill: #6a5362; font: italic 600 15px "Segoe UI", Arial, sans-serif; direction: rtl; unicode-bidi: isolate; }
+    .string-label { fill: #a24569; font: 800 16px "Segoe UI", Arial, sans-serif; direction: rtl; unicode-bidi: isolate; }
+    .active-halo { fill: rgba(238, 143, 178, 0.18); stroke: #d94d82; stroke-width: 3; opacity: 0; }
+    .score-event { cursor: pointer; }
+    .score-event.is-active .active-halo { opacity: 1; }
+    .score-event.is-active .notehead { fill: #e85b91; stroke: #c73d70; }
+    .score-event.is-active .finger-label,
+    .score-event.is-active .pitch-label,
+    .score-event.is-active .string-label { fill: #c73d70; }
+
+    .empty-score {
+      display: grid;
+      place-items: center;
+      min-height: 250px;
+      padding: 34px;
+      text-align: center;
+      direction: rtl;
+    }
+
+    .empty-score strong { display: block; margin-bottom: 5px; font-size: 1.08rem; }
+    .empty-score span { color: #705c69; }
+
+    .timeline-card,
+    .controls-card {
+      display: grid;
+      gap: 12px;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .timeline-head { justify-content: space-between; }
+    .timeline-head label, .control label { font-weight: 700; }
+    .timecode { color: var(--muted); direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
+
+    input[type="range"] { width: 100%; cursor: pointer; }
+
+    .sections {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+      gap: 7px;
+      direction: ltr;
+    }
+
+    .section-button {
+      min-height: 38px;
+      padding: 0.45rem 0.65rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.025);
+      cursor: pointer;
+      direction: rtl;
+    }
+
+    .section-button[aria-current="true"] {
+      border-color: rgba(238, 143, 178, 0.48);
+      color: var(--text);
+      background: var(--accent-soft);
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(145px, 1fr));
+      align-items: end;
+    }
+
+    .control { display: grid; gap: 7px; min-width: 0; }
+    .control small { color: var(--muted); }
+
+    select, input[type="number"] {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--text);
+      background: #211820;
+      padding: 0.55rem 0.68rem;
+    }
+
+    .output { color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+
+    .loop-box {
+      display: grid;
+      gap: 8px;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .switch { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+    .loop-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .guide {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-align: center;
+    }
+
+    .status-row { justify-content: space-between; flex-wrap: wrap; min-height: 26px; }
+    .status { color: var(--muted); }
+    .warning { color: var(--warning); }
+    .error { color: var(--danger); }
+    [hidden] { display: none !important; }
+
+    @media (max-width: 900px) {
+      .topbar { flex-direction: column; }
+      .actions { justify-content: flex-start; }
+      .control-grid { grid-template-columns: repeat(2, minmax(145px, 1fr)); }
+    }
+
+    @media (max-width: 560px) {
+      .page { padding: 8px; }
+      .player { padding: 14px; border-radius: 18px; }
+      .control-grid { grid-template-columns: minmax(0, 1fr); }
+      .loop-fields { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="zoom-surface" class="zoom-surface">
+      <article id="player" class="player" aria-labelledby="song-title">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">פרויקט כינור</p>
+            <h1 id="song-title">לומדת לעוף — פזמון</h1>
+            <p id="song-subtitle" class="subtitle">עיבוד לכינור · לה מז׳ור</p>
+          </div>
+          <div class="actions">
+            <button id="play" class="btn btn-primary" type="button">נגן</button>
+            <button id="restart" class="btn" type="button">מההתחלה</button>
+          </div>
+        </header>
+
+        <section class="now-panel" aria-label="התו המנוגן עכשיו">
+          <span class="now-label">מנגן עכשיו</span>
+          <div class="now-row">
+            <span id="now-note" class="now-note">מנוחה</span>
+            <bdi id="now-latin" class="now-latin" dir="ltr"></bdi>
+            <span id="now-technique" class="now-technique"></span>
+          </div>
+        </section>
+
+        <div id="facts" class="facts" aria-label="פרטי העיבוד"></div>
+
+        <section class="score-wrap" aria-label="תווים לכינור">
+          <div id="score" class="score-canvas"></div>
+        </section>
+
+        <p class="guide">מספר האצבע מופיע מעל התו · 0 = מיתר פתוח · שם המיתר מופיע רק בתחילת הנגינה ובכל החלפת מיתר · שם הצליל מופיע בסוגריים</p>
+
+        <section class="timeline-card" aria-label="ציר זמן">
+          <div class="timeline-head">
+            <label for="seek">ציר זמן</label>
+            <span class="timecode"><output id="current-time" for="seek">0:00</output> / <span id="total-time">0:00</span></span>
+          </div>
+          <input id="seek" type="range" min="0" max="1" step="0.01" value="0" dir="ltr">
+          <nav id="sections" class="sections" aria-label="חלוקת הפזמון"></nav>
+        </section>
+
+        <section class="controls-card" aria-label="הגדרות נגינה">
+          <div class="control-grid">
+            <div class="control">
+              <label for="key">סולם</label>
+              <select id="key"></select>
+              <small id="range">מנעד: —</small>
+            </div>
+
+            <div class="control">
+              <label for="speed">מהירות: <output id="speed-value" class="output" for="speed">100%</output></label>
+              <input id="speed" type="range" min="40" max="125" step="5" value="100" dir="ltr">
+              <small><output id="tempo-value" for="speed">— BPM</output></small>
+            </div>
+
+            <div class="control">
+              <label for="zoom">גודל הממשק והתווים: <output id="zoom-value" class="output" for="zoom">100%</output></label>
+              <input id="zoom" type="range" min="80" max="160" step="5" value="100" dir="ltr">
+              <small>ההגדלה חלה על כל הממשק</small>
+            </div>
+
+            <div class="loop-box">
+              <label class="switch" for="loop-enabled">
+                <input id="loop-enabled" type="checkbox">
+                <span>לופ לפי תיבות</span>
+              </label>
+              <div class="loop-fields">
+                <label class="control" for="loop-start">מתיבה
+                  <input id="loop-start" type="number" inputmode="numeric" dir="ltr">
+                </label>
+                <label class="control" for="loop-end">עד תיבה
+                  <input id="loop-end" type="number" inputmode="numeric" dir="ltr">
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="status-row">
+          <span id="status" class="status" aria-live="polite">מוכן לניגון</span>
+          <span id="warning" class="warning" aria-live="polite" hidden></span>
+          <span id="error" class="error" role="alert" hidden></span>
+        </footer>
+      </article>
+    </div>
+  </main>
+
+  <script id="chorus-data" type="application/json">{"schemaVersion":1,"title":"לומדת לעוף — פזמון","subtitle":"עיבוד מלודי לכינור · לה מז׳ור · עמדה ראשונה","dataStatus":"ready","dataMessage":"המלודיה הוצלבה מול שלוש חזרות של הפזמון.","key":{"id":"A","label":"לה מז׳ור","mode":"major","fifths":3,"options":[{"id":"C","label":"דו מז׳ור","semitones":-9,"fifths":0},{"id":"Db","label":"רה♭ מז׳ור","semitones":-8,"fifths":-5},{"id":"D","label":"רה מז׳ור","semitones":-7,"fifths":2},{"id":"Eb","label":"מי♭ מז׳ור","semitones":-6,"fifths":-3},{"id":"E","label":"מי מז׳ור","semitones":-5,"fifths":4},{"id":"F","label":"פה מז׳ור","semitones":-4,"fifths":-1},{"id":"Fs","label":"פה♯ מז׳ור","semitones":-3,"fifths":6},{"id":"G","label":"סול מז׳ור","semitones":-2,"fifths":1},{"id":"Ab","label":"לה♭ מז׳ור","semitones":-1,"fifths":-4},{"id":"A","label":"לה מז׳ור","semitones":0,"fifths":3},{"id":"Bb","label":"סי♭ מז׳ור","semitones":1,"fifths":-2},{"id":"B","label":"סי מז׳ור","semitones":2,"fifths":5}]},"tempo":{"bpm":91,"beatUnit":4,"verified":true},"meter":{"beats":4,"beatType":4},"layout":{"measuresPerSystem":3},"measures":[{"number":1,"startQ":0,"durationQ":4,"label":""},{"number":2,"startQ":4,"durationQ":4,"label":""},{"number":3,"startQ":8,"durationQ":4,"label":""},{"number":4,"startQ":12,"durationQ":4,"label":""},{"number":5,"startQ":16,"durationQ":4,"label":""},{"number":6,"startQ":20,"durationQ":4,"label":""},{"number":7,"startQ":24,"durationQ":4,"label":""},{"number":8,"startQ":28,"durationQ":4,"label":""},{"number":9,"startQ":32,"durationQ":4,"label":""}],"sections":[{"id":"chorus","label":"פזמון","startMeasure":1,"endMeasure":9}],"events":[{"id":"r001","kind":"rest","startQ":0,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false},{"id":"n001","kind":"note","startQ":1,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false,"midi":57,"pitchLatin":"A3","noteName":"לה","finger":1,"string":"G","stringName":"סול","placement":"רגילה"},{"id":"n002","kind":"note","startQ":2,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false,"midi":59,"pitchLatin":"B3","noteName":"סי","finger":2,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n003","kind":"note","startQ":3,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false,"midi":59,"pitchLatin":"B3","noteName":"סי","finger":2,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n004","kind":"note","startQ":4,"durationQ":2,"dotted":false,"tieStart":false,"tieStop":false,"midi":61,"pitchLatin":"C#4","noteName":"דו♯","finger":3,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n005","kind":"note","startQ":6,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":64,"pitchLatin":"E4","noteName":"מי","finger":1,"string":"D","stringName":"רה","placement":"רגילה"},{"id":"n006","kind":"note","startQ":6.5,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":66,"pitchLatin":"F#4","noteName":"פה♯","finger":2,"string":"D","stringName":"רה","placement":"גבוהה"},{"id":"n007","kind":"note","startQ":7,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":64,"pitchLatin":"E4","noteName":"מי","finger":1,"string":"D","stringName":"רה","placement":"רגילה"},{"id":"n008","kind":"note","startQ":7.5,"durationQ":0.5,"dotted":false,"tieStart":true,"tieStop":false,"midi":59,"pitchLatin":"B3","noteName":"סי","finger":2,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n009","kind":"note","startQ":8,"durationQ":1.5,"dotted":false,"tieStart":false,"tieStop":true,"midi":59,"pitchLatin":"B3","noteName":"סי","finger":2,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"r002","kind":"rest","startQ":9.5,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false},{"id":"n010","kind":"note","startQ":10.5,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":64,"pitchLatin":"E4","noteName":"מי","finger":1,"string":"D","stringName":"רה","placement":"רגילה"},{"id":"n011","kind":"note","startQ":11,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":66,"pitchLatin":"F#4","noteName":"פה♯","finger":2,"string":"D","stringName":"רה","placement":"גבוהה"},{"id":"n012","kind":"note","startQ":11.5,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":64,"pitchLatin":"E4","noteName":"מי","finger":1,"string":"D","stringName":"רה","placement":"רגילה"},{"id":"n013","kind":"note","startQ":12,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":57,"pitchLatin":"A3","noteName":"לה","finger":1,"string":"G","stringName":"סול","placement":"רגילה"},{"id":"n014","kind":"note","startQ":12.5,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false,"midi":59,"pitchLatin":"B3","noteName":"סי","finger":2,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n015","kind":"note","startQ":13.5,"durationQ":2,"dotted":false,"tieStart":false,"tieStop":false,"midi":61,"pitchLatin":"C#4","noteName":"דו♯","finger":3,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"r003","kind":"rest","startQ":15.5,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false},{"id":"r004","kind":"rest","startQ":16,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false},{"id":"n016","kind":"note","startQ":17,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false,"midi":57,"pitchLatin":"A3","noteName":"לה","finger":1,"string":"G","stringName":"סול","placement":"רגילה"},{"id":"n017","kind":"note","startQ":18,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false,"midi":59,"pitchLatin":"B3","noteName":"סי","finger":2,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n018","kind":"note","startQ":19,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false,"midi":59,"pitchLatin":"B3","noteName":"סי","finger":2,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n019","kind":"note","startQ":20,"durationQ":2,"dotted":false,"tieStart":false,"tieStop":false,"midi":61,"pitchLatin":"C#4","noteName":"דו♯","finger":3,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n020","kind":"note","startQ":22,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":64,"pitchLatin":"E4","noteName":"מי","finger":1,"string":"D","stringName":"רה","placement":"רגילה"},{"id":"n021","kind":"note","startQ":22.5,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":69,"pitchLatin":"A4","noteName":"לה","finger":0,"string":"A","stringName":"לה","placement":"פתוח"},{"id":"n022","kind":"note","startQ":23,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false,"midi":68,"pitchLatin":"G#4","noteName":"סול♯","finger":3,"string":"D","stringName":"רה","placement":"גבוהה"},{"id":"n023","kind":"note","startQ":24,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":64,"pitchLatin":"E4","noteName":"מי","finger":1,"string":"D","stringName":"רה","placement":"רגילה"},{"id":"n024","kind":"note","startQ":24.5,"durationQ":1.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":61,"pitchLatin":"C#4","noteName":"דו♯","finger":3,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"r005","kind":"rest","startQ":26,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false},{"id":"n025","kind":"note","startQ":27,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":66,"pitchLatin":"F#4","noteName":"פה♯","finger":2,"string":"D","stringName":"רה","placement":"גבוהה"},{"id":"n026","kind":"note","startQ":27.5,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":64,"pitchLatin":"E4","noteName":"מי","finger":1,"string":"D","stringName":"רה","placement":"רגילה"},{"id":"n027","kind":"note","startQ":28,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":57,"pitchLatin":"A3","noteName":"לה","finger":1,"string":"G","stringName":"סול","placement":"רגילה"},{"id":"n028","kind":"note","startQ":28.5,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false,"midi":59,"pitchLatin":"B3","noteName":"סי","finger":2,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n029","kind":"note","startQ":29.5,"durationQ":1.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":61,"pitchLatin":"C#4","noteName":"דו♯","finger":3,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n030","kind":"note","startQ":31,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":false,"midi":57,"pitchLatin":"A3","noteName":"לה","finger":1,"string":"G","stringName":"סול","placement":"רגילה"},{"id":"n031","kind":"note","startQ":31.5,"durationQ":0.5,"dotted":false,"tieStart":true,"tieStop":false,"midi":59,"pitchLatin":"B3","noteName":"סי","finger":2,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n032","kind":"note","startQ":32,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":true,"midi":59,"pitchLatin":"B3","noteName":"סי","finger":2,"string":"G","stringName":"סול","placement":"גבוהה"},{"id":"n033","kind":"note","startQ":32.5,"durationQ":2,"dotted":false,"tieStart":true,"tieStop":false,"midi":60,"pitchLatin":"C4","noteName":"דו♮","finger":3,"string":"G","stringName":"סול","placement":"נמוכה"},{"id":"n034","kind":"note","startQ":34.5,"durationQ":0.5,"dotted":false,"tieStart":false,"tieStop":true,"midi":60,"pitchLatin":"C4","noteName":"דו♮","finger":3,"string":"G","stringName":"סול","placement":"נמוכה"},{"id":"r006","kind":"rest","startQ":35,"durationQ":1,"dotted":false,"tieStart":false,"tieStop":false}]}</script>
+  <script>
+  (() => {
+    'use strict';
+
+    const DATA = JSON.parse(document.getElementById('chorus-data').textContent);
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const EPSILON = 1e-7;
+    const LOOKAHEAD_SECONDS = 0.18;
+    const OPEN_STRINGS = [
+      { id: 'G', name: 'סול', midi: 55 },
+      { id: 'D', name: 'רה', midi: 62 },
+      { id: 'A', name: 'לה', midi: 69 },
+      { id: 'E', name: 'מי', midi: 76 },
+    ];
+    const STEP_INDEX = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
+    const SHARP_SPELLINGS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const FLAT_SPELLINGS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+    const HEBREW_STEP = { C: 'דו', D: 'רה', E: 'מי', F: 'פה', G: 'סול', A: 'לה', B: 'סי' };
+    const SHARP_ORDER = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
+    const FLAT_ORDER = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
+    const KEY_SIGNATURE_Y = {
+      sharp: [90, 108, 84, 102, 120, 96, 114],
+      flat: [114, 96, 120, 102, 126, 108, 132],
+    };
+
+    const el = (id) => document.getElementById(id);
+    const player = el('player');
+    const score = el('score');
+    const playButton = el('play');
+    const restartButton = el('restart');
+    const seek = el('seek');
+    const currentTime = el('current-time');
+    const totalTime = el('total-time');
+    const sectionsNode = el('sections');
+    const keySelect = el('key');
+    const speed = el('speed');
+    const speedValue = el('speed-value');
+    const tempoValue = el('tempo-value');
+    const zoom = el('zoom');
+    const zoomValue = el('zoom-value');
+    const loopEnabled = el('loop-enabled');
+    const loopStart = el('loop-start');
+    const loopEnd = el('loop-end');
+    const nowNote = el('now-note');
+    const nowLatin = el('now-latin');
+    const nowTechnique = el('now-technique');
+    const statusNode = el('status');
+    const warningNode = el('warning');
+    const errorNode = el('error');
+    const rangeNode = el('range');
+
+    const measures = [...DATA.measures].sort((a, b) => a.startQ - b.startQ);
+    const events = [...DATA.events].sort((a, b) => a.startQ - b.startQ || a.id.localeCompare(b.id));
+    const notes = events.filter((event) => event.kind === 'note');
+    const audioNotes = [];
+    for (const event of notes) {
+      const previous = audioNotes[audioNotes.length - 1];
+      const joinsPrevious = previous
+        && previous.tieOpen
+        && event.tieStop
+        && previous.midi === event.midi
+        && Math.abs((previous.startQ + previous.durationQ) - event.startQ) < EPSILON;
+      if (joinsPrevious) {
+        previous.durationQ += event.durationQ;
+        previous.tieOpen = Boolean(event.tieStart);
+      } else {
+        audioNotes.push({ ...event, tieOpen: Boolean(event.tieStart) });
+      }
+    }
+    const measuresByNumber = new Map(measures.map((measure) => [measure.number, measure]));
+    const TOTAL_Q = measures.length
+      ? measures[measures.length - 1].startQ + measures[measures.length - 1].durationQ
+      : 0;
+    const BASE_QPS = DATA.tempo.bpm / 60;
+    const NOTE_READY = DATA.dataStatus === 'ready' && notes.length > 0;
+
+    const state = {
+      playing: false,
+      starting: false,
+      frozenQ: 0,
+      anchorQ: 0,
+      anchorAudioTime: 0,
+      speed: 1,
+      raf: 0,
+      timer: 0,
+      epoch: 0,
+      scheduleQ: 0,
+      scheduleAudioTime: 0,
+      audioContext: null,
+      voiceBus: null,
+      violinWave: null,
+      bowNoiseBuffer: null,
+      voices: new Set(),
+      activeEventId: null,
+      activeSystem: null,
+      scoreNodes: new Map(),
+      eventSystems: new Map(),
+      resumeAfterScrub: false,
+    };
+
+    function clamp(value, minimum, maximum) {
+      return Math.min(maximum, Math.max(minimum, value));
+    }
+
+    function svgNode(name, attributes = {}, text = '') {
+      const node = document.createElementNS(SVG_NS, name);
+      for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value));
+      if (text !== '') node.textContent = text;
+      return node;
+    }
+
+    function formatTime(seconds) {
+      const safe = Math.max(0, Number.isFinite(seconds) ? seconds : 0);
+      const minutes = Math.floor(safe / 60);
+      return `${minutes}:${String(Math.floor(safe % 60)).padStart(2, '0')}`;
+    }
+
+    function currentKey() {
+      return DATA.key.options.find((option) => option.id === keySelect.value) || DATA.key.options[0];
+    }
+
+    function normalizeAccidental(raw) {
+      return raw.replace('♯', '#').replace('♭', 'b');
+    }
+
+    function parsePitchLatin(raw) {
+      const match = /^([A-Ga-g])([#b]?)(-?\d+)$/.exec(normalizeAccidental(String(raw || '').trim()));
+      if (!match) return null;
+      return { step: match[1].toUpperCase(), accidental: match[2], octave: Number(match[3]) };
+    }
+
+    function spellMidi(midi, key = currentKey()) {
+      const spelling = (key.fifths < 0 ? FLAT_SPELLINGS : SHARP_SPELLINGS)[((midi % 12) + 12) % 12];
+      const step = spelling[0];
+      const accidental = spelling.slice(1);
+      const octave = Math.floor(midi / 12) - 1;
+      return { step, accidental, octave };
+    }
+
+    function pitchForEvent(event) {
+      const shift = currentKey().semitones;
+      const midi = event.midi + shift;
+      const supplied = shift === 0 ? parsePitchLatin(event.pitchLatin) : null;
+      const spelling = supplied || spellMidi(midi);
+      const accidentalSymbol = spelling.accidental === '#' ? '♯' : spelling.accidental === 'b' ? '♭' : '';
+      const latin = `${spelling.step}${accidentalSymbol}${spelling.octave}`;
+      const suppliedHebrew = shift === 0 ? String(event.noteName || '').trim() : '';
+      const hebrew = suppliedHebrew || `${HEBREW_STEP[spelling.step]}${accidentalSymbol}`;
+      return { ...spelling, midi, latin, hebrew };
+    }
+
+    function keyAlterations(fifths) {
+      const result = new Map();
+      const order = fifths >= 0 ? SHARP_ORDER : FLAT_ORDER;
+      const alteration = fifths >= 0 ? '#' : 'b';
+      for (let index = 0; index < Math.abs(fifths); index += 1) result.set(order[index], alteration);
+      return result;
+    }
+
+    function accidentalForPitch(pitch, fifths) {
+      const expected = keyAlterations(fifths).get(pitch.step) || '';
+      if (pitch.accidental === expected) return '';
+      if (!pitch.accidental && expected) return '♮';
+      if (pitch.accidental === '#') return '♯';
+      if (pitch.accidental === 'b') return '♭';
+      return '';
+    }
+
+    function deriveFingering(midi) {
+      let open = OPEN_STRINGS[0];
+      for (const candidate of OPEN_STRINGS) {
+        if (candidate.midi <= midi) open = candidate;
+      }
+      const offset = midi - open.midi;
+      const mapping = {
+        0: [0, 'פתוח'],
+        1: [1, 'נמוכה'],
+        2: [1, 'רגילה'],
+        3: [2, 'נמוכה'],
+        4: [2, 'גבוהה'],
+        5: [3, 'נמוכה'],
+        6: [3, 'גבוהה'],
+        7: [4, 'רגילה'],
+      };
+      const mapped = mapping[offset] || [4, offset > 7 ? 'מחוץ לעמדה הראשונה' : 'נמוכה'];
+      return { finger: mapped[0], placement: mapped[1], string: open.id, stringName: open.name };
+    }
+
+    function techniqueForEvent(event) {
+      if (currentKey().semitones === 0) {
+        return {
+          finger: event.finger,
+          placement: event.placement || '',
+          string: event.string,
+          stringName: event.stringName,
+        };
+      }
+      return deriveFingering(event.midi + currentKey().semitones);
+    }
+
+    function measureForQ(q) {
+      let selected = measures[0];
+      for (const measure of measures) {
+        if (q + EPSILON >= measure.startQ) selected = measure;
+        else break;
+      }
+      return selected;
+    }
+
+    function measureBounds(number) {
+      const measure = measuresByNumber.get(Number(number)) || measures[0];
+      return { start: measure.startQ, end: measure.startQ + measure.durationQ };
+    }
+
+    function loopBounds() {
+      let startNumber = Number(loopStart.value);
+      let endNumber = Number(loopEnd.value);
+      const validNumbers = measures.map((measure) => measure.number);
+      if (!validNumbers.includes(startNumber)) startNumber = validNumbers[0];
+      if (!validNumbers.includes(endNumber)) endNumber = validNumbers[validNumbers.length - 1];
+      if (endNumber < startNumber) endNumber = startNumber;
+      loopStart.value = String(startNumber);
+      loopEnd.value = String(endNumber);
+      return { start: measureBounds(startNumber).start, end: measureBounds(endNumber).end };
+    }
+
+    function sectionAt(q) {
+      const measure = measureForQ(q);
+      return DATA.sections.find((section) => (
+        measure.number >= section.startMeasure && measure.number <= section.endMeasure
+      )) || DATA.sections[0];
+    }
+
+    function buildFacts() {
+      const facts = el('facts');
+      facts.replaceChildren();
+      const items = [
+        `סולם: ${currentKey().label}`,
+        DATA.tempo.verified ? `קצב בסיס: ${DATA.tempo.bpm} BPM` : 'קצב בסיס: ממתין לאימות',
+        `משקל: ${DATA.meter.beats}/${DATA.meter.beatType}`,
+        `${measures.length} ${measures.length === 1 ? 'תיבה' : 'תיבות'}`,
+      ];
+      for (const item of items) {
+        const span = document.createElement('span');
+        span.className = 'fact';
+        span.textContent = item;
+        facts.appendChild(span);
+      }
+    }
+
+    function populateKeyOptions() {
+      keySelect.replaceChildren();
+      for (const option of DATA.key.options) {
+        const node = document.createElement('option');
+        node.value = option.id;
+        node.textContent = option.label;
+        node.selected = option.id === DATA.key.id;
+        keySelect.appendChild(node);
+      }
+    }
+
+    function buildSections() {
+      sectionsNode.replaceChildren();
+      for (const section of DATA.sections) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'section-button';
+        button.dataset.sectionId = section.id;
+        button.textContent = section.label;
+        button.title = `תיבות ${section.startMeasure}–${section.endMeasure}`;
+        button.addEventListener('click', () => {
+          const q = measureBounds(section.startMeasure).start;
+          if (loopEnabled.checked) {
+            loopStart.value = String(section.startMeasure);
+            loopEnd.value = String(section.endMeasure);
+          }
+          moveTo(q, state.playing);
+        });
+        sectionsNode.appendChild(button);
+      }
+    }
+
+    function drawKeySignature(svg, fifths, startX) {
+      const count = Math.abs(fifths);
+      const glyph = fifths >= 0 ? '♯' : '♭';
+      const positions = fifths >= 0 ? KEY_SIGNATURE_Y.sharp : KEY_SIGNATURE_Y.flat;
+      for (let index = 0; index < count; index += 1) {
+        svg.appendChild(svgNode('text', {
+          x: startX + index * 16,
+          y: positions[index] + (fifths < 0 ? 8 : 10),
+          class: 'key-mark',
+          'text-anchor': 'middle',
+        }, glyph));
+      }
+    }
+
+    function staffY(pitch) {
+      const bottomLineIndex = 4 * 7 + STEP_INDEX.E;
+      const pitchIndex = pitch.octave * 7 + STEP_INDEX[pitch.step];
+      return 138 - (pitchIndex - bottomLineIndex) * 6;
+    }
+
+    function drawLedgerLines(svg, x, y) {
+      if (y <= 78) {
+        for (let lineY = 78; lineY >= y - 1; lineY -= 12) {
+          svg.appendChild(svgNode('line', { x1: x - 13, x2: x + 13, y1: lineY, y2: lineY, class: 'ledger-line' }));
+        }
+      } else if (y >= 150) {
+        for (let lineY = 150; lineY <= y + 1; lineY += 12) {
+          svg.appendChild(svgNode('line', { x1: x - 13, x2: x + 13, y1: lineY, y2: lineY, class: 'ledger-line' }));
+        }
+      }
+    }
+
+    function drawRhythm(group, x, y, durationQ, dotted) {
+      const isWhole = durationQ >= 3.75;
+      const isOpen = durationQ >= 1.75;
+      const head = svgNode('ellipse', {
+        cx: x,
+        cy: y,
+        rx: 9.5,
+        ry: 6.8,
+        transform: `rotate(-16 ${x} ${y})`,
+        class: `notehead${isOpen ? ' is-open' : ''}`,
+      });
+      group.appendChild(head);
+      if (!isWhole) {
+        const stemDown = y <= 114;
+        const stemX = stemDown ? x - 8 : x + 8;
+        const stemEnd = stemDown ? y + 45 : y - 45;
+        group.appendChild(svgNode('line', { x1: stemX, x2: stemX, y1: y, y2: stemEnd, class: 'note-stem' }));
+        if (durationQ < 0.95) {
+          const direction = stemDown ? -1 : 1;
+          const path = stemDown
+            ? `M ${stemX} ${stemEnd} C ${stemX - 18} ${stemEnd + 7}, ${stemX - 17} ${stemEnd + 22}, ${stemX - 4} ${stemEnd + 26}`
+            : `M ${stemX} ${stemEnd} C ${stemX + 18} ${stemEnd + 7}, ${stemX + 17} ${stemEnd + 22}, ${stemX + 4} ${stemEnd + 26}`;
+          group.appendChild(svgNode('path', { d: path, class: 'note-flag', 'data-direction': direction }));
+          if (durationQ < 0.45) {
+            const second = stemDown
+              ? `M ${stemX} ${stemEnd + 10} C ${stemX - 16} ${stemEnd + 17}, ${stemX - 15} ${stemEnd + 28}, ${stemX - 4} ${stemEnd + 31}`
+              : `M ${stemX} ${stemEnd + 10} C ${stemX + 16} ${stemEnd + 17}, ${stemX + 15} ${stemEnd + 28}, ${stemX + 4} ${stemEnd + 31}`;
+            group.appendChild(svgNode('path', { d: second, class: 'note-flag' }));
+          }
+        }
+      }
+      const inferredDot = [0.75, 1.5, 3].some((value) => Math.abs(durationQ - value) < 0.02);
+      if (dotted || inferredDot) group.appendChild(svgNode('circle', { cx: x + 15, cy: y - 2, r: 2.5, class: 'dot' }));
+    }
+
+    function drawRest(svg, event, x) {
+      let glyph = '𝄽';
+      if (event.durationQ >= 3.75) glyph = '𝄻';
+      else if (event.durationQ >= 1.75) glyph = '𝄼';
+      else if (event.durationQ < 0.75) glyph = '𝄾';
+      svg.appendChild(svgNode('text', { x, y: 126, class: 'rest-glyph', 'text-anchor': 'middle' }, glyph));
+    }
+
+    function renderScore() {
+      score.replaceChildren();
+      state.scoreNodes.clear();
+      state.eventSystems.clear();
+      state.activeEventId = null;
+      state.activeSystem = null;
+
+      if (!notes.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-score';
+        const inner = document.createElement('div');
+        const strong = document.createElement('strong');
+        strong.textContent = 'הנגן מוכן; התווים עדיין לא הוזנו';
+        const message = document.createElement('span');
+        message.textContent = DATA.dataMessage || 'לאחר השלמת התעתיק המאומת, התווים יופיעו כאן אוטומטית.';
+        inner.append(strong, message);
+        empty.appendChild(inner);
+        score.appendChild(empty);
+        return;
+      }
+
+      const measuresPerSystem = Math.max(1, DATA.layout.measuresPerSystem || 4);
+      const systems = [];
+      for (let index = 0; index < measures.length; index += measuresPerSystem) {
+        systems.push(measures.slice(index, index + measuresPerSystem));
+      }
+
+      const effectiveTechniques = new Map();
+      const stringChangeIds = new Set();
+      let previousString = null;
+      for (const noteEvent of notes) {
+        const technique = techniqueForEvent(noteEvent);
+        effectiveTechniques.set(noteEvent.id, technique);
+        if (technique.string !== previousString) stringChangeIds.add(noteEvent.id);
+        previousString = technique.string;
+      }
+
+      for (let systemIndex = 0; systemIndex < systems.length; systemIndex += 1) {
+        const systemMeasures = systems[systemIndex];
+        const card = document.createElement('section');
+        card.className = 'score-system';
+        card.dataset.systemIndex = String(systemIndex);
+        const header = document.createElement('div');
+        header.className = 'score-system-head';
+        const label = document.createElement('span');
+        label.textContent = systemMeasures.length === 1
+          ? `תיבה ${systemMeasures[0].number}`
+          : `תיבות ${systemMeasures[0].number}–${systemMeasures[systemMeasures.length - 1].number}`;
+        const keyLabel = document.createElement('span');
+        keyLabel.textContent = currentKey().label;
+        header.append(label, keyLabel);
+
+        const width = 1200;
+        const height = 245;
+        const staffTop = 90;
+        const staffBottom = 138;
+        const musicStartX = 155;
+        const rightMargin = 28;
+        const measureWidth = (width - musicStartX - rightMargin) / systemMeasures.length;
+        const svg = svgNode('svg', {
+          class: 'score-svg',
+          viewBox: `0 0 ${width} ${height}`,
+          role: 'img',
+          'aria-label': label.textContent,
+        });
+
+        for (let line = 0; line < 5; line += 1) {
+          const y = staffTop + line * 12;
+          svg.appendChild(svgNode('line', { x1: 12, x2: width - 14, y1: y, y2: y, class: 'staff-line' }));
+        }
+        svg.appendChild(svgNode('text', { x: 18, y: 151, class: 'clef' }, '𝄞'));
+        drawKeySignature(svg, currentKey().fifths, 77);
+        if (systemIndex === 0) {
+          const timeX = 120 + Math.abs(currentKey().fifths) * 4;
+          svg.appendChild(svgNode('text', { x: timeX, y: 111, class: 'time-number', 'text-anchor': 'middle' }, String(DATA.meter.beats)));
+          svg.appendChild(svgNode('text', { x: timeX, y: 137, class: 'time-number', 'text-anchor': 'middle' }, String(DATA.meter.beatType)));
+        }
+
+        const systemStartQ = systemMeasures[0].startQ;
+        const systemEndQ = systemMeasures[systemMeasures.length - 1].startQ + systemMeasures[systemMeasures.length - 1].durationQ;
+        systemMeasures.forEach((measure, measureIndex) => {
+          const x0 = musicStartX + measureIndex * measureWidth;
+          svg.appendChild(svgNode('line', { x1: x0, x2: x0, y1: staffTop, y2: staffBottom, class: 'bar-line' }));
+          svg.appendChild(svgNode('text', { x: x0 + 8, y: 73, class: 'measure-number' }, String(measure.number)));
+          if (measureIndex === systemMeasures.length - 1) {
+            const endX = x0 + measureWidth;
+            svg.appendChild(svgNode('line', { x1: endX, x2: endX, y1: staffTop, y2: staffBottom, class: 'bar-line' }));
+          }
+        });
+
+        const eventsInSystem = events.filter((event) => (
+          event.startQ >= systemStartQ - EPSILON && event.startQ < systemEndQ - EPSILON
+        ));
+        const positions = new Map();
+        for (const event of eventsInSystem) {
+          const measure = [...systemMeasures].reverse().find((item) => event.startQ >= item.startQ - EPSILON) || systemMeasures[0];
+          const measureIndex = systemMeasures.indexOf(measure);
+          const local = clamp((event.startQ - measure.startQ) / measure.durationQ, 0, 0.995);
+          const x = musicStartX + measureIndex * measureWidth + 25 + local * (measureWidth - 50);
+          positions.set(event.id, { x, measureIndex });
+          state.eventSystems.set(event.id, card);
+          if (event.kind === 'rest') {
+            drawRest(svg, event, x);
+            continue;
+          }
+
+          const pitch = pitchForEvent(event);
+          const y = staffY(pitch);
+          const technique = effectiveTechniques.get(event.id);
+          drawLedgerLines(svg, x, y);
+          const group = svgNode('g', {
+            class: 'score-event',
+            tabindex: '0',
+            role: 'button',
+            'aria-label': `${pitch.hebrew}, אצבע ${technique.finger}, מיתר ${technique.stringName}`,
+            'data-event-id': event.id,
+          });
+          group.appendChild(svgNode('circle', { cx: x, cy: y, r: 19, class: 'active-halo' }));
+          // A tied continuation inherits the accidental from the note where
+          // the tie starts; repeating it adds visual noise and is nonstandard.
+          const accidental = event.tieStop ? '' : accidentalForPitch(pitch, currentKey().fifths);
+          if (accidental) group.appendChild(svgNode('text', { x: x - 19, y: y + 8, class: 'accidental', 'text-anchor': 'middle' }, accidental));
+          drawRhythm(group, x, y, event.durationQ, event.dotted);
+          group.appendChild(svgNode('text', {
+            x,
+            y: Math.max(27, y - 34),
+            class: 'finger-label',
+            'text-anchor': 'middle',
+          }, String(technique.finger)));
+          group.appendChild(svgNode('text', {
+            x,
+            y: 179,
+            class: 'pitch-label',
+            'text-anchor': 'middle',
+          }, `(${pitch.hebrew})`));
+          if (stringChangeIds.has(event.id)) {
+            group.appendChild(svgNode('text', {
+              x,
+              y: 203,
+              class: 'string-label',
+              'text-anchor': 'middle',
+            }, technique.stringName));
+          }
+          group.addEventListener('click', () => moveTo(event.startQ, state.playing));
+          group.addEventListener('keydown', (keyboardEvent) => {
+            if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
+              keyboardEvent.preventDefault();
+              moveTo(event.startQ, state.playing);
+            }
+          });
+          state.scoreNodes.set(event.id, group);
+          svg.appendChild(group);
+        }
+
+        for (const event of eventsInSystem) {
+          if (event.kind !== 'note' || !event.tieStart) continue;
+          const following = notes.find((candidate) => candidate.startQ >= event.startQ + event.durationQ - EPSILON);
+          if (!following || !positions.has(following.id)) continue;
+          const from = positions.get(event.id);
+          const to = positions.get(following.id);
+          if (!from || !to) continue;
+          const fromY = staffY(pitchForEvent(event));
+          const toY = staffY(pitchForEvent(following));
+          const midX = (from.x + to.x) / 2;
+          const arcY = Math.max(fromY, toY) + 23;
+          svg.appendChild(svgNode('path', {
+            d: `M ${from.x + 8} ${fromY + 7} Q ${midX} ${arcY + 12} ${to.x - 8} ${toY + 7}`,
+            class: 'tie',
+          }));
+        }
+
+        card.append(header, svg);
+        score.appendChild(card);
+      }
+    }
+
+    function updateRange() {
+      if (!notes.length) {
+        rangeNode.textContent = 'מנעד: —';
+        return;
+      }
+      const pitches = notes.map((event) => pitchForEvent(event));
+      const lowest = pitches.reduce((a, b) => a.midi <= b.midi ? a : b);
+      const highest = pitches.reduce((a, b) => a.midi >= b.midi ? a : b);
+      rangeNode.textContent = `מנעד: ${lowest.latin}–${highest.latin}`;
+      const outside = lowest.midi < 55 || highest.midi > 83;
+      warningNode.hidden = !outside;
+      warningNode.textContent = outside ? 'חלק מהתווים מחוץ לעמדה הראשונה הנוחה בכינור.' : '';
+    }
+
+    function activeNoteAt(q) {
+      let active = null;
+      for (const event of notes) {
+        if (event.startQ > q + EPSILON) break;
+        if (event.startQ <= q + EPSILON && event.startQ + event.durationQ > q + EPSILON) active = event;
+      }
+      return active;
+    }
+
+    function updateDisplay(q = state.frozenQ) {
+      const position = clamp(q, 0, TOTAL_Q);
+      if (!state.playing) state.frozenQ = position;
+      seek.value = String(position);
+      currentTime.textContent = formatTime(position / BASE_QPS);
+      const measure = measureForQ(Math.min(position, Math.max(0, TOTAL_Q - EPSILON)));
+      const beat = measure ? ((position - measure.startQ) * DATA.meter.beatType / 4) + 1 : 1;
+      const section = sectionAt(position);
+      statusNode.textContent = state.playing
+        ? `מנגן · ${section.label} · תיבה ${measure.number} · פעמה ${Math.max(1, beat).toFixed(beat % 1 ? 1 : 0)}`
+        : `מוכן · ${section.label} · תיבה ${measure.number}`;
+
+      sectionsNode.querySelectorAll('.section-button').forEach((button) => {
+        button.setAttribute('aria-current', String(button.dataset.sectionId === section.id));
+      });
+
+      const active = activeNoteAt(position);
+      if (state.activeEventId && state.scoreNodes.has(state.activeEventId)) {
+        state.scoreNodes.get(state.activeEventId).classList.remove('is-active');
+      }
+      if (state.activeSystem) state.activeSystem.classList.remove('is-current');
+      state.activeEventId = active ? active.id : null;
+      state.activeSystem = active ? state.eventSystems.get(active.id) : null;
+
+      if (active) {
+        const pitch = pitchForEvent(active);
+        const technique = techniqueForEvent(active);
+        const placement = technique.finger === 0 || !technique.placement ? '' : ` ${technique.placement}`;
+        nowNote.textContent = pitch.hebrew;
+        nowLatin.textContent = pitch.latin;
+        nowTechnique.textContent = `אצבע ${technique.finger}${placement} · מיתר ${technique.stringName}`;
+        const node = state.scoreNodes.get(active.id);
+        if (node) node.classList.add('is-active');
+        if (state.activeSystem) state.activeSystem.classList.add('is-current');
+      } else {
+        nowNote.textContent = 'מנוחה';
+        nowLatin.textContent = '';
+        nowTechnique.textContent = '';
+      }
+    }
+
+    function scorePosition(atTime) {
+      if (!state.playing || !state.audioContext) return state.frozenQ;
+      const now = atTime ?? state.audioContext.currentTime;
+      const raw = state.anchorQ + (now - state.anchorAudioTime) * BASE_QPS * state.speed;
+      if (loopEnabled.checked) {
+        const bounds = loopBounds();
+        const length = bounds.end - bounds.start;
+        if (length > EPSILON && raw >= bounds.end) return bounds.start + ((raw - bounds.start) % length);
+      }
+      return clamp(raw, 0, TOTAL_Q);
+    }
+
+    function requestDisplayFrame() {
+      if (state.raf) return;
+      state.raf = requestAnimationFrame(function frame() {
+        state.raf = 0;
+        const position = scorePosition();
+        updateDisplay(position);
+        if (state.playing && !loopEnabled.checked && position >= TOTAL_Q - EPSILON) {
+          finishPlayback();
+          return;
+        }
+        if (state.playing) requestDisplayFrame();
+      });
+    }
+
+    function seededRandom(seed) {
+      return () => {
+        seed |= 0;
+        seed = (seed + 0x6d2b79f5) | 0;
+        let value = seed;
+        value = Math.imul(value ^ (value >>> 15), value | 1);
+        value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+        return ((((value ^ (value >>> 14)) >>> 0) / 4294967296) * 2) - 1;
+      };
+    }
+
+    function createViolinWave(context) {
+      const amplitudes = [0, 1, 0.68, 0.52, 0.41, 0.33, 0.27, 0.22, 0.18, 0.145, 0.115, 0.095, 0.075, 0.06, 0.048, 0.04, 0.032];
+      const real = new Float32Array(amplitudes.length);
+      const imag = new Float32Array(amplitudes.length);
+      for (let harmonic = 1; harmonic < amplitudes.length; harmonic += 1) {
+        const phase = harmonic === 1 ? Math.PI / 2 : (harmonic * 2.17) % (Math.PI * 2);
+        real[harmonic] = amplitudes[harmonic] * Math.cos(phase);
+        imag[harmonic] = amplitudes[harmonic] * Math.sin(phase);
+      }
+      return context.createPeriodicWave(real, imag, { disableNormalization: false });
+    }
+
+    function createBowNoiseBuffer(context) {
+      const buffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate);
+      const data = buffer.getChannelData(0);
+      const random = seededRandom(0x4b1d123);
+      let softened = 0;
+      for (let index = 0; index < data.length; index += 1) {
+        const white = random();
+        softened += 0.04 * (white - softened);
+        data[index] = clamp(white * 0.72 + softened * 0.5, -1, 1);
+      }
+      return buffer;
+    }
+
+    function createRoomImpulse(context) {
+      const length = Math.floor(context.sampleRate * 0.72);
+      const impulse = context.createBuffer(2, length, context.sampleRate);
+      const reflections = [[0.014, 0.42], [0.027, 0.28], [0.043, 0.20], [0.067, 0.13]];
+      for (let channel = 0; channel < 2; channel += 1) {
+        const data = impulse.getChannelData(channel);
+        const random = seededRandom(0x71293 + channel * 997);
+        let damped = 0;
+        for (let index = 0; index < length; index += 1) {
+          const time = index / context.sampleRate;
+          const noise = random();
+          damped += 0.16 * (noise - damped);
+          data[index] = (noise * 0.58 + damped * 0.42) * Math.exp(-5.4 * time) * 0.16;
+        }
+        for (const [time, level] of reflections) {
+          const index = Math.floor(time * context.sampleRate);
+          if (index < length) data[index] += level * (channel ? 0.92 : 1);
+        }
+      }
+      return impulse;
+    }
+
+    function ensureAudioContext() {
+      if (state.audioContext) return state.audioContext;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) throw new Error('הדפדפן הזה לא תומך בניגון Web Audio.');
+      const context = new AudioContextClass();
+      const voiceBus = context.createGain();
+      const eq = (type, frequency, q, gain = 0) => {
+        const node = context.createBiquadFilter();
+        node.type = type;
+        node.frequency.value = frequency;
+        node.Q.value = q;
+        node.gain.value = gain;
+        return node;
+      };
+      const highpass = eq('highpass', 145, 0.7);
+      const body = eq('peaking', 285, 1.1, 3.2);
+      const wood = eq('peaking', 620, 0.9, 1.8);
+      const nasalReduction = eq('peaking', 1200, 1, -2.4);
+      const bridge = eq('peaking', 2700, 1.2, 3.8);
+      const air = eq('lowpass', 7200, 0.55);
+      voiceBus.connect(highpass);
+      highpass.connect(body);
+      body.connect(wood);
+      wood.connect(nasalReduction);
+      nasalReduction.connect(bridge);
+      bridge.connect(air);
+      const dry = context.createGain();
+      dry.gain.value = 0.9;
+      const preDelay = context.createDelay(0.05);
+      preDelay.delayTime.value = 0.017;
+      const convolver = context.createConvolver();
+      convolver.buffer = createRoomImpulse(context);
+      const wet = context.createGain();
+      wet.gain.value = 0.11;
+      const compressor = context.createDynamicsCompressor();
+      compressor.threshold.value = -16;
+      compressor.knee.value = 14;
+      compressor.ratio.value = 2.4;
+      compressor.attack.value = 0.008;
+      compressor.release.value = 0.18;
+      const master = context.createGain();
+      master.gain.value = 0.58;
+      air.connect(dry);
+      dry.connect(compressor);
+      air.connect(preDelay);
+      preDelay.connect(convolver);
+      convolver.connect(wet);
+      wet.connect(compressor);
+      compressor.connect(master);
+      master.connect(context.destination);
+      state.audioContext = context;
+      state.voiceBus = voiceBus;
+      state.violinWave = createViolinWave(context);
+      state.bowNoiseBuffer = createBowNoiseBuffer(context);
+      player.dataset.timbre = 'classical-violin';
+      return context;
+    }
+
+    function scheduleVoice(midi, when, durationSeconds) {
+      if (!state.audioContext || durationSeconds <= 0.003) return;
+      const context = state.audioContext;
+      const startAt = Math.max(when, context.currentTime + 0.003);
+      const duration = Math.max(0.012, durationSeconds);
+      const noteEnd = startAt + duration;
+      const disposeAt = noteEnd + 0.04;
+      const frequency = 440 * Math.pow(2, (midi - 69) / 12);
+      const attack = Math.min(0.032, Math.max(0.004, duration * 0.16));
+      const release = Math.min(0.072, Math.max(0.008, duration * 0.20));
+      const attackEnd = Math.min(noteEnd - 0.001, startAt + attack);
+      const releaseStart = Math.max(attackEnd, noteEnd - release);
+      const pitchTrim = clamp(1 - (midi - 69) * 0.008, 0.82, 1.1);
+      const carrier = context.createOscillator();
+      carrier.setPeriodicWave(state.violinWave);
+      carrier.frequency.setValueAtTime(frequency, startAt);
+      carrier.detune.setValueAtTime(-3, startAt);
+      carrier.detune.linearRampToValueAtTime(0, startAt + Math.min(0.028, duration * 0.2));
+      const carrierGain = context.createGain();
+      carrierGain.gain.setValueAtTime(0.0001, startAt);
+      carrierGain.gain.linearRampToValueAtTime(0.15 * pitchTrim, attackEnd);
+      if (releaseStart > attackEnd + 0.001) carrierGain.gain.linearRampToValueAtTime(0.123 * pitchTrim, Math.min(releaseStart, attackEnd + 0.06));
+      carrierGain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+      const tone = context.createBiquadFilter();
+      tone.type = 'lowpass';
+      tone.Q.value = 0.55;
+      const cutoff = clamp(6200 - Math.max(0, midi - 72) * 130, 4200, 6200);
+      tone.frequency.setValueAtTime(Math.min(7800, cutoff * 1.25), startAt);
+      tone.frequency.exponentialRampToValueAtTime(cutoff, startAt + Math.min(0.12, duration * 0.28));
+      carrier.connect(carrierGain);
+      carrierGain.connect(tone);
+      const bow = context.createBufferSource();
+      bow.buffer = state.bowNoiseBuffer;
+      bow.loop = true;
+      const bowBand = context.createBiquadFilter();
+      bowBand.type = 'bandpass';
+      bowBand.frequency.value = clamp(2700 + (midi - 62) * 45, 2500, 3500);
+      bowBand.Q.value = 0.75;
+      const bowGain = context.createGain();
+      const bowAttackEnd = Math.min(releaseStart, startAt + 0.009);
+      bowGain.gain.setValueAtTime(0.0001, startAt);
+      bowGain.gain.linearRampToValueAtTime(0.018 * pitchTrim, bowAttackEnd);
+      bowGain.gain.linearRampToValueAtTime(0.0055, Math.min(releaseStart, bowAttackEnd + 0.04));
+      bowGain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+      bow.connect(bowBand);
+      bowBand.connect(bowGain);
+      bowGain.connect(tone);
+      tone.connect(state.voiceBus);
+      const sources = [carrier, bow];
+      if (duration > 0.32) {
+        const vibrato = context.createOscillator();
+        const vibratoDepth = context.createGain();
+        const onset = startAt + Math.min(0.18, duration * 0.28);
+        vibrato.type = 'sine';
+        vibrato.frequency.value = 5.3 + ((((midi * 17) % 9) - 4) * 0.025);
+        vibratoDepth.gain.setValueAtTime(0, startAt);
+        vibratoDepth.gain.setValueAtTime(0, onset);
+        vibratoDepth.gain.linearRampToValueAtTime(Math.min(15, 10 + duration * 2), Math.min(noteEnd - 0.05, onset + 0.09));
+        vibrato.connect(vibratoDepth);
+        vibratoDepth.connect(carrier.detune);
+        vibrato.start(startAt);
+        vibrato.stop(disposeAt);
+        sources.push(vibrato);
+      }
+      const voice = { sources, gates: [carrierGain, bowGain] };
+      state.voices.add(voice);
+      carrier.onended = () => state.voices.delete(voice);
+      carrier.start(startAt);
+      bow.start(startAt, (midi * 0.173) % state.bowNoiseBuffer.duration);
+      carrier.stop(disposeAt);
+      bow.stop(disposeAt);
+    }
+
+    function stopVoices() {
+      if (!state.audioContext) return;
+      const now = state.audioContext.currentTime;
+      for (const voice of state.voices) {
+        for (const gate of voice.gates) {
+          try {
+            gate.gain.cancelScheduledValues(now);
+            gate.gain.setValueAtTime(Math.max(0.0001, gate.gain.value), now);
+            gate.gain.linearRampToValueAtTime(0.0001, now + 0.015);
+          } catch (_ignored) {}
+        }
+        for (const source of voice.sources) {
+          try { source.stop(now + 0.02); } catch (_ignored) {}
+        }
+      }
+      state.voices.clear();
+    }
+
+    function scheduleOnsets(scoreFrom, scoreTo, audioFrom, boundary) {
+      if (scoreTo <= scoreFrom + EPSILON) return;
+      for (const noteEvent of audioNotes) {
+        if (noteEvent.startQ + EPSILON < scoreFrom) continue;
+        if (noteEvent.startQ >= scoreTo - EPSILON) break;
+        const when = audioFrom + (noteEvent.startQ - scoreFrom) / (BASE_QPS * state.speed);
+        const endQ = Math.min(noteEvent.startQ + noteEvent.durationQ, boundary);
+        const duration = (endQ - noteEvent.startQ) / (BASE_QPS * state.speed);
+        scheduleVoice(noteEvent.midi + currentKey().semitones, when, duration);
+      }
+    }
+
+    function scheduleChasedNote(q, when, boundary) {
+      let active = null;
+      for (const noteEvent of audioNotes) {
+        if (noteEvent.startQ > q + EPSILON) break;
+        if (noteEvent.startQ <= q + EPSILON && noteEvent.startQ + noteEvent.durationQ > q + EPSILON) active = noteEvent;
+      }
+      if (!active || active.startQ >= q - EPSILON) return;
+      const endQ = Math.min(active.startQ + active.durationQ, boundary);
+      scheduleVoice(active.midi + currentKey().semitones, when, (endQ - q) / (BASE_QPS * state.speed));
+    }
+
+    function schedulerTick(epoch) {
+      if (!state.playing || epoch !== state.epoch || !state.audioContext) return;
+      const now = state.audioContext.currentTime;
+      const horizon = now + LOOKAHEAD_SECONDS;
+      let guard = 0;
+      while (state.scheduleAudioTime < horizon - 0.001 && guard < 10) {
+        guard += 1;
+        const bounds = loopEnabled.checked ? loopBounds() : { start: 0, end: TOTAL_Q };
+        const remainingQ = bounds.end - state.scheduleQ;
+        if (remainingQ <= EPSILON) {
+          if (!loopEnabled.checked) break;
+          state.scheduleQ = bounds.start;
+          scheduleChasedNote(state.scheduleQ, state.scheduleAudioTime, bounds.end);
+          continue;
+        }
+        const possibleAudioEnd = state.scheduleAudioTime + remainingQ / (BASE_QPS * state.speed);
+        const segmentAudioEnd = Math.min(horizon, possibleAudioEnd);
+        const segmentScoreEnd = state.scheduleQ + (segmentAudioEnd - state.scheduleAudioTime) * BASE_QPS * state.speed;
+        scheduleOnsets(state.scheduleQ, segmentScoreEnd, state.scheduleAudioTime, bounds.end);
+        state.scheduleAudioTime = segmentAudioEnd;
+        state.scheduleQ = segmentScoreEnd;
+        if (Math.abs(state.scheduleQ - bounds.end) <= 0.0001 && loopEnabled.checked) {
+          state.scheduleQ = bounds.start;
+          scheduleChasedNote(state.scheduleQ, state.scheduleAudioTime, bounds.end);
+        }
+      }
+    }
+
+    function invalidateRun() {
+      state.epoch += 1;
+      if (state.timer) clearInterval(state.timer);
+      state.timer = 0;
+      stopVoices();
+    }
+
+    function startFrom(q) {
+      const context = state.audioContext;
+      invalidateRun();
+      state.frozenQ = clamp(q, 0, TOTAL_Q);
+      state.anchorQ = state.frozenQ;
+      state.anchorAudioTime = context.currentTime + 0.04;
+      state.scheduleAudioTime = state.anchorAudioTime;
+      state.scheduleQ = state.anchorQ;
+      state.playing = true;
+      const boundary = loopEnabled.checked ? loopBounds().end : TOTAL_Q;
+      scheduleChasedNote(state.scheduleQ, state.scheduleAudioTime, boundary);
+      const epoch = state.epoch;
+      schedulerTick(epoch);
+      state.timer = setInterval(() => schedulerTick(epoch), 25);
+      playButton.textContent = 'השהה';
+      requestDisplayFrame();
+    }
+
+    async function play() {
+      if (!NOTE_READY || state.playing || state.starting) return;
+      state.starting = true;
+      try {
+        const context = ensureAudioContext();
+        await context.resume();
+        let q = state.frozenQ;
+        if (loopEnabled.checked) {
+          const bounds = loopBounds();
+          if (q < bounds.start || q >= bounds.end) q = bounds.start;
+        } else if (q >= TOTAL_Q - EPSILON) q = 0;
+        startFrom(q);
+      } catch (audioError) {
+        errorNode.hidden = false;
+        errorNode.textContent = audioError instanceof Error ? audioError.message : 'לא ניתן להתחיל את הנגינה.';
+      } finally {
+        state.starting = false;
+      }
+    }
+
+    function pause(update = true) {
+      if (state.playing) state.frozenQ = scorePosition();
+      state.playing = false;
+      invalidateRun();
+      playButton.textContent = 'נגן';
+      if (update) updateDisplay(state.frozenQ);
+    }
+
+    function finishPlayback() {
+      state.playing = false;
+      invalidateRun();
+      state.frozenQ = TOTAL_Q;
+      playButton.textContent = 'נגן';
+      updateDisplay(TOTAL_Q);
+      statusNode.textContent = 'הנגינה הסתיימה';
+    }
+
+    function moveTo(q, keepPlaying = false) {
+      const wasPlaying = keepPlaying && state.playing;
+      if (state.playing) pause(false);
+      state.frozenQ = clamp(q, 0, TOTAL_Q);
+      updateDisplay(state.frozenQ);
+      if (wasPlaying) play();
+    }
+
+    function restartPlayback() {
+      const q = loopEnabled.checked ? loopBounds().start : 0;
+      moveTo(q, state.playing);
+      statusNode.textContent = loopEnabled.checked ? 'חזרה לתחילת הלופ' : 'חזרה להתחלה';
+    }
+
+    function refreshAfterPlaybackSettingChange(callback) {
+      const q = scorePosition();
+      const wasPlaying = state.playing;
+      if (state.playing) pause(false);
+      callback();
+      state.frozenQ = q;
+      updateDisplay(q);
+      if (wasPlaying) play();
+    }
+
+    function initialize() {
+      document.title = DATA.title;
+      el('song-title').textContent = DATA.title;
+      el('song-subtitle').textContent = DATA.subtitle;
+      populateKeyOptions();
+      buildFacts();
+      buildSections();
+      renderScore();
+      updateRange();
+
+      seek.max = String(TOTAL_Q);
+      totalTime.textContent = formatTime(TOTAL_Q / BASE_QPS);
+      tempoValue.textContent = DATA.tempo.verified ? `${Math.round(DATA.tempo.bpm)} BPM` : 'ממתין לאימות';
+      const measureNumbers = measures.map((measure) => measure.number);
+      loopStart.min = loopEnd.min = String(measureNumbers[0]);
+      loopStart.max = loopEnd.max = String(measureNumbers[measureNumbers.length - 1]);
+      loopStart.value = String(measureNumbers[0]);
+      loopEnd.value = String(measureNumbers[measureNumbers.length - 1]);
+
+      if (!NOTE_READY) {
+        for (const control of [playButton, restartButton, seek, speed, loopEnabled, loopStart, loopEnd]) control.disabled = true;
+        statusNode.textContent = 'ממתין לנתוני הפזמון המאומתים';
+        warningNode.hidden = false;
+        warningNode.textContent = DATA.dataMessage || 'עדיין אין נתוני תווים לניגון.';
+      }
+      updateDisplay(0);
+    }
+
+    playButton.addEventListener('click', () => state.playing ? pause() : play());
+    restartButton.addEventListener('click', restartPlayback);
+
+    seek.addEventListener('pointerdown', () => {
+      state.resumeAfterScrub = state.playing;
+      if (state.playing) pause(false);
+    });
+    seek.addEventListener('input', () => {
+      state.frozenQ = Number(seek.value);
+      updateDisplay(state.frozenQ);
+    });
+    seek.addEventListener('change', () => {
+      const shouldResume = state.resumeAfterScrub;
+      state.resumeAfterScrub = false;
+      if (shouldResume) play();
+    });
+
+    keySelect.addEventListener('change', () => {
+      refreshAfterPlaybackSettingChange(() => {
+        buildFacts();
+        renderScore();
+        updateRange();
+      });
+    });
+
+    speed.addEventListener('input', () => {
+      const percent = clamp(Number(speed.value), 40, 125);
+      refreshAfterPlaybackSettingChange(() => {
+        state.speed = percent / 100;
+        speedValue.textContent = `${percent}%`;
+        tempoValue.textContent = `${Math.round(DATA.tempo.bpm * state.speed)} BPM`;
+      });
+    });
+
+    zoom.addEventListener('input', () => {
+      const percent = clamp(Number(zoom.value), 80, 160);
+      document.documentElement.style.setProperty('--ui-zoom', String(percent / 100));
+      zoomValue.textContent = `${percent}%`;
+    });
+
+    loopEnabled.addEventListener('change', () => {
+      const q = scorePosition();
+      const wasPlaying = state.playing;
+      if (state.playing) pause(false);
+      const bounds = loopBounds();
+      state.frozenQ = loopEnabled.checked && (q < bounds.start || q >= bounds.end) ? bounds.start : q;
+      updateDisplay(state.frozenQ);
+      if (wasPlaying) play();
+    });
+
+    for (const input of [loopStart, loopEnd]) {
+      input.addEventListener('change', () => {
+        const bounds = loopBounds();
+        if (state.frozenQ < bounds.start || state.frozenQ >= bounds.end) moveTo(bounds.start, state.playing);
+      });
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && state.playing) pause();
+    });
+
+    initialize();
+  })();
+  </script>
+</body>
+</html>

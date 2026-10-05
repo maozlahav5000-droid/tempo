@@ -67,3 +67,73 @@ test("keeps lesson-note bullets visible after the Tailwind list reset", async ()
     /\.rich-notes-editor li::marker\s*\{[^}]*\bcolor:\s*#16866d\s*;/i,
   );
 });
+
+test("ships both violin projects and the Lomedet Laof player", async () => {
+  const projectsView = await readFile(
+    new URL("../app/components/ProjectsView.tsx", import.meta.url),
+    "utf8",
+  );
+  const projectIds = [...projectsView.matchAll(/\bid:\s*"([^"]+)"/g)].map((match) => match[1]);
+
+  assert.deepEqual(projectIds, ["shkiot-adumot", "lomedet-laof"]);
+  assert.match(projectsView, /title:\s*"שקיעות אדומות"/);
+  assert.match(projectsView, /title:\s*"לומדת לעוף"/);
+  assert.match(projectsView, /path:\s*"\/projects\/lomedet-laof\/index\.html"/);
+  assert.match(projectsView, /meta:\s*\["לה מז׳ור",\s*"9 תיבות"\]/);
+
+  const publicPlayer = await readFile(
+    new URL("../public/projects/lomedet-laof/index.html", import.meta.url),
+    "utf8",
+  );
+  const builtPlayer = await readFile(
+    new URL("../dist/client/projects/lomedet-laof/index.html", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(publicPlayer, hebrewRtlDocument);
+  assert.match(publicPlayer, /<title>לומדת לעוף — פזמון<\/title>/);
+  assert.match(publicPlayer, /לה מז׳ור/);
+  assert.match(publicPlayer, /id="chorus-data" type="application\/json"/);
+  assert.equal(builtPlayer, publicPlayer);
+});
+
+test("routes project assets through the private-access worker", async () => {
+  const wranglerConfig = JSON.parse(
+    await readFile(new URL("../dist/server/wrangler.json", import.meta.url), "utf8"),
+  );
+  assert.deepEqual(wranglerConfig.assets.run_worker_first, ["/projects/*"]);
+
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("project-access-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  let assetRequests = 0;
+  const env = {
+    TEMPO_ACCESS_TOKEN: "test-private-token",
+    ASSETS: {
+      fetch: async () => {
+        assetRequests += 1;
+        return new Response("protected project player", { status: 200 });
+      },
+    },
+  };
+  const ctx = {
+    waitUntil() {},
+    passThroughOnException() {},
+  };
+  const url = "https://tempo.example.workers.dev/projects/lomedet-laof/index.html";
+
+  const unauthenticated = await worker.fetch(new Request(url), env, ctx);
+  assert.equal(unauthenticated.status, 401);
+  assert.equal(unauthenticated.headers.get("cache-control"), "no-store");
+  assert.equal(unauthenticated.headers.get("x-frame-options"), "DENY");
+  assert.equal(assetRequests, 0);
+
+  const authenticated = await worker.fetch(
+    new Request(url, { headers: { cookie: "tempo_cloud_access=test-private-token" } }),
+    env,
+    ctx,
+  );
+  assert.equal(authenticated.status, 200);
+  assert.equal(await authenticated.text(), "protected project player");
+  assert.equal(assetRequests, 1);
+});

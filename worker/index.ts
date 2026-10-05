@@ -116,6 +116,12 @@ const worker = {
       }, allowedWidths);
     }
 
+    // Cloudflare's static asset router is configured to send /projects/* here
+    // first.  Serve those files only after the private-access gate above.
+    if (url.pathname.startsWith("/projects/")) {
+      return env.ASSETS.fetch(request);
+    }
+
     return handler.fetch(request, env, ctx);
   },
 };
