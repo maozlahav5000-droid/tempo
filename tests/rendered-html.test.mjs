@@ -178,7 +178,7 @@ test("ships the reference metronome sounds as strong mono PCM samples", async ()
   }
 });
 
-test("ships both violin projects and both Lomedet Laof players", async () => {
+test("ships both violin projects and the promoted Lomedet Laof player", async () => {
   const projectsView = await readFile(
     new URL("../app/components/ProjectsView.tsx", import.meta.url),
     "utf8",
@@ -189,7 +189,7 @@ test("ships both violin projects and both Lomedet Laof players", async () => {
   assert.match(projectsView, /title:\s*"שקיעות אדומות"/);
   assert.match(projectsView, /title:\s*"לומדת לעוף"/);
   assert.match(projectsView, /path:\s*"\/projects\/lomedet-laof\/index\.html"/);
-  assert.match(projectsView, /meta:\s*\["לה מז׳ור",\s*"9 תיבות"\]/);
+  assert.match(projectsView, /meta:\s*\["לה מז׳ור",\s*"12 תיבות · 2 גבהים"\]/);
 
   const publicPlayer = await readFile(
     new URL("../public/projects/lomedet-laof/index.html", import.meta.url),
@@ -207,20 +207,64 @@ test("ships both violin projects and both Lomedet Laof players", async () => {
     new URL("../dist/client/projects/lomedet-laof-experiment/index.html", import.meta.url),
     "utf8",
   );
+  const publicScore = await readFile(
+    new URL("../public/projects/lomedet-laof/lomedet-laof-two-registers.pdf", import.meta.url),
+  );
+  const builtScore = await readFile(
+    new URL("../dist/client/projects/lomedet-laof/lomedet-laof-two-registers.pdf", import.meta.url),
+  );
+  const publicLicense = await readFile(
+    new URL("../public/projects/lomedet-laof/THIRD-PARTY-LICENSE-VSCO2CE.txt", import.meta.url),
+    "utf8",
+  );
+  const builtLicense = await readFile(
+    new URL("../dist/client/projects/lomedet-laof/THIRD-PARTY-LICENSE-VSCO2CE.txt", import.meta.url),
+    "utf8",
+  );
   const builtAssetsIgnore = await readFile(
     new URL("../dist/client/.assetsignore", import.meta.url),
     "utf8",
   );
 
   assert.match(publicPlayer, hebrewRtlDocument);
-  assert.match(publicPlayer, /<title>לומדת לעוף — פזמון<\/title>/);
+  assert.match(publicPlayer, /<title>לומדת לעוף — פזמון לכינור<\/title>/);
   assert.match(publicPlayer, /לה מז׳ור/);
   assert.match(publicPlayer, /id="chorus-data" type="application\/json"/);
+  assert.match(publicPlayer, /id="violin-samples" type="application\/json"/);
+  assert.match(publicPlayer, /id="register"/);
+  assert.match(publicPlayer, /id="timbre"/);
+  assert.match(publicPlayer, /href="lomedet-laof-two-registers\.pdf" download/);
+  assert.doesNotMatch(publicPlayer, /הפרויקט המקורי נשאר ללא שינוי/);
+  assert.doesNotMatch(publicPlayer, /<h1[^>]*>[^<]*ניסוי/);
   assert.equal(builtPlayer, publicPlayer);
 
-  assert.match(publicExperimentPlayer, hebrewRtlDocument);
-  assert.match(publicExperimentPlayer, /<title>לומדת לעוף — ניסוי גובה וצליל<\/title>/);
-  assert.match(publicExperimentPlayer, /תזמון וסיום מתוקנים/);
+  const extractEmbeddedJson = (html, id) => {
+    const match = html.match(new RegExp(`<script id="${id}" type="application/json">([\\s\\S]*?)<\\/script>`));
+    assert.ok(match, `missing embedded JSON: ${id}`);
+    return JSON.parse(match[1]);
+  };
+  const chorusData = extractEmbeddedJson(publicPlayer, "chorus-data");
+  const violinSamples = extractEmbeddedJson(publicPlayer, "violin-samples");
+  const endingPitches = chorusData.events
+    .filter((event) => event.kind === "note" && !event.tieStop && event.startQ >= 40)
+    .map((event) => event.midi);
+  const finalRest = chorusData.events.filter((event) => event.kind === "rest").at(-1);
+
+  assert.equal(chorusData.tempo.bpm, 120);
+  assert.equal(chorusData.measures.length, 12);
+  assert.equal(chorusData.events.length, 49);
+  assert.equal(chorusData.events.filter((event) => event.kind === "note").length, 36);
+  assert.deepEqual(endingPitches, [57, 59, 60]);
+  assert.equal(finalRest.startQ, 44);
+  assert.equal(finalRest.durationQ, 4);
+  assert.equal(violinSamples.length, 6);
+
+  assert.equal(publicScore.toString("ascii", 0, 4), "%PDF");
+  assert.deepEqual(builtScore, publicScore);
+  assert.equal(builtLicense, publicLicense);
+
+  assert.match(publicExperimentPlayer, /<title>לומדת לעוף — מעבר לגרסה המעודכנת<\/title>/);
+  assert.match(publicExperimentPlayer, /\.\.\/lomedet-laof\/index\.html/);
   assert.equal(builtExperimentPlayer, publicExperimentPlayer);
   assert.doesNotMatch(builtAssetsIgnore, /lomedet-laof-experiment/);
 });
