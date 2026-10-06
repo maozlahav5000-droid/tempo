@@ -1743,7 +1743,11 @@ export default function Home() {
                       <span className={isPlaying ? "pause-symbol" : "play-symbol"} aria-hidden="true" />
                     </button>
                   </div>
-                  <p>{isPlaying && currentBeat !== null ? `פעימה ${currentBeat + 1} מתוך ${beatsPerBar}` : `${bpm} BPM · ${beatsPerBar}/${beatUnit}`}</p>
+                  <p dir={isPlaying && currentBeat !== null ? "rtl" : "ltr"}>
+                    {isPlaying && currentBeat !== null
+                      ? `פעימה ${currentBeat + 1} מתוך ${beatsPerBar}`
+                      : `${bpm} BPM · ${beatsPerBar}/${beatUnit}`}
+                  </p>
                 </div>
               </div>
             </section>

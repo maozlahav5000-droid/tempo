@@ -1,16 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Assistant, Space_Mono } from "next/font/google";
+import { Heebo } from "next/font/google";
 import "./globals.css";
 
-const assistant = Assistant({
-  variable: "--font-assistant",
+const heebo = Heebo({
+  variable: "--font-heebo",
   subsets: ["hebrew", "latin"],
-});
-
-const spaceMono = Space_Mono({
-  variable: "--font-space-mono",
-  subsets: ["latin"],
-  weight: ["400", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -39,7 +34,7 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
-      <body className={`${assistant.variable} ${spaceMono.variable}`}>
+      <body className={heebo.variable}>
         {children}
       </body>
     </html>

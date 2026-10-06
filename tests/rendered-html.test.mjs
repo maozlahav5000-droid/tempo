@@ -103,6 +103,19 @@ test("server-renders the current metronome controls", async () => {
   assert.match(html, /60 BPM · 4\/4/);
 });
 
+test("uses the smooth Hebrew UI typeface instead of the old mono display font", async () => {
+  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(layout, /import \{ Heebo \} from "next\/font\/google"/);
+  assert.doesNotMatch(layout, /Space_Mono|Assistant/);
+  assert.match(
+    css,
+    /\.tempo-input-wrap input\s*\{[^}]*font-family:\s*var\(--font-heebo\)[^}]*font-size:\s*clamp\(3rem,\s*6vw,\s*4\.4rem\)[^}]*font-weight:\s*600/,
+  );
+  assert.doesNotMatch(css, /--font-space-mono|--font-assistant/);
+});
+
 test("keeps lesson-note bullets visible after the Tailwind list reset", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 
