@@ -178,7 +178,7 @@ test("ships the reference metronome sounds as strong mono PCM samples", async ()
   }
 });
 
-test("ships both violin projects and the Lomedet Laof player", async () => {
+test("ships both violin projects and both Lomedet Laof players", async () => {
   const projectsView = await readFile(
     new URL("../app/components/ProjectsView.tsx", import.meta.url),
     "utf8",
@@ -199,12 +199,30 @@ test("ships both violin projects and the Lomedet Laof player", async () => {
     new URL("../dist/client/projects/lomedet-laof/index.html", import.meta.url),
     "utf8",
   );
+  const publicExperimentPlayer = await readFile(
+    new URL("../public/projects/lomedet-laof-experiment/index.html", import.meta.url),
+    "utf8",
+  );
+  const builtExperimentPlayer = await readFile(
+    new URL("../dist/client/projects/lomedet-laof-experiment/index.html", import.meta.url),
+    "utf8",
+  );
+  const builtAssetsIgnore = await readFile(
+    new URL("../dist/client/.assetsignore", import.meta.url),
+    "utf8",
+  );
 
   assert.match(publicPlayer, hebrewRtlDocument);
   assert.match(publicPlayer, /<title>לומדת לעוף — פזמון<\/title>/);
   assert.match(publicPlayer, /לה מז׳ור/);
   assert.match(publicPlayer, /id="chorus-data" type="application\/json"/);
   assert.equal(builtPlayer, publicPlayer);
+
+  assert.match(publicExperimentPlayer, hebrewRtlDocument);
+  assert.match(publicExperimentPlayer, /<title>לומדת לעוף — ניסוי גובה וצליל<\/title>/);
+  assert.match(publicExperimentPlayer, /תזמון וסיום מתוקנים/);
+  assert.equal(builtExperimentPlayer, publicExperimentPlayer);
+  assert.doesNotMatch(builtAssetsIgnore, /lomedet-laof-experiment/);
 });
 
 test("routes project assets through the private-access worker", async () => {
