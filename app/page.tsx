@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ProjectsView, { type ProjectId } from "./components/ProjectsView";
+import { secondsPerBeat } from "./metronome-timing.mjs";
 
 const MIN_BPM = 40;
 const MAX_BPM = 240;
@@ -15,6 +16,13 @@ const METRONOME_CLICK_URLS = {
 } as const;
 type BeatsPerBar = (typeof METER_OPTIONS)[number];
 type BeatUnit = (typeof BEAT_UNIT_OPTIONS)[number];
+const BEAT_UNIT_DESCRIPTIONS: Record<BeatUnit, string> = {
+  1: "תו שלם — טיקטוק איטי פי ארבעה ביחס לרבע",
+  2: "חצי — טיקטוק איטי פי שניים ביחס לרבע",
+  4: "רבע — טיקטוק אחד בכל פעימה",
+  8: "שמינית — טיקטוק מהיר פי שניים ביחס לרבע",
+  16: "חלק שישה־עשר — טיקטוק מהיר פי ארבעה ביחס לרבע",
+};
 type ViewName = "metronome" | "notes" | "sheet" | "projects";
 type SheetSection = "warmup" | "practice";
 const ALL_FOLDERS = "all";
@@ -528,6 +536,7 @@ export default function Home() {
   const beatRef = useRef(0);
   const bpmRef = useRef(bpm);
   const beatsPerBarRef = useRef<BeatsPerBar>(beatsPerBar);
+  const beatUnitRef = useRef<BeatUnit>(beatUnit);
   const sourcesRef = useRef(new Set<ActiveMetronomeSource>());
   const visualTimersRef = useRef(new Set<ReturnType<typeof setTimeout>>());
   const generationRef = useRef(0);
@@ -840,19 +849,19 @@ export default function Home() {
         const currentContext = audioContextRef.current;
         if (!currentContext || !runningRef.current || generation !== generationRef.current) return;
 
-        const secondsPerBeat = 60 / bpmRef.current;
+        const beatDurationSeconds = secondsPerBeat(bpmRef.current, beatUnitRef.current);
         if (nextNoteTimeRef.current < currentContext.currentTime - 0.02) {
           const missedBeats = Math.floor(
-            (currentContext.currentTime - nextNoteTimeRef.current) / secondsPerBeat,
+            (currentContext.currentTime - nextNoteTimeRef.current) / beatDurationSeconds,
           ) + 1;
-          nextNoteTimeRef.current += missedBeats * secondsPerBeat;
+          nextNoteTimeRef.current += missedBeats * beatDurationSeconds;
           beatRef.current = (beatRef.current + missedBeats) % beatsPerBarRef.current;
         }
 
         while (nextNoteTimeRef.current < currentContext.currentTime + 0.1) {
           scheduleClick(beatRef.current, nextNoteTimeRef.current);
           scheduleVisualBeat(beatRef.current, nextNoteTimeRef.current);
-          nextNoteTimeRef.current += secondsPerBeat;
+          nextNoteTimeRef.current += beatDurationSeconds;
           beatRef.current = (beatRef.current + 1) % beatsPerBarRef.current;
         }
       };
@@ -1231,6 +1240,22 @@ export default function Home() {
     beatRef.current = 0;
     setCurrentBeat(null);
     setBeatsPerBar(value);
+  };
+
+  const updateBeatUnit = (value: BeatUnit) => {
+    if (value === beatUnitRef.current) return;
+
+    beatUnitRef.current = value;
+    setBeatUnit(value);
+
+    const context = audioContextRef.current;
+    if (!runningRef.current || !context || context.state === "closed") return;
+
+    clearScheduledAudio(true);
+    clearVisualTimers();
+    beatRef.current = 0;
+    nextNoteTimeRef.current = context.currentTime + 0.05;
+    setCurrentBeat(null);
   };
 
   const updateActiveLesson = (changes: LessonNoteChanges) => {
@@ -1669,7 +1694,7 @@ export default function Home() {
                       value={bpm}
                       onChange={(event) => updateBpm(Number(event.target.value))}
                       aria-label="שינוי מהירות המטרונום"
-                      aria-valuetext={`${bpm} פעימות בדקה`}
+                      aria-valuetext={`${bpm} רבעים בדקה`}
                       style={{ "--range-progress": `${((bpm - MIN_BPM) / (MAX_BPM - MIN_BPM)) * 100}%` } as React.CSSProperties}
                     />
                     <div className="range-ends" dir="ltr"><span>{MIN_BPM}</span><span>{MAX_BPM}</span></div>
@@ -1708,22 +1733,32 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="signature-row">
-                        <span>יחידת פעימה</span>
+                        <span id="beat-unit-label">יחידת פעימה</span>
                         <div className="option-scroller">
-                          <div className="meter-segments unit-options" dir="ltr">
+                          <div
+                            className="meter-segments unit-options"
+                            dir="ltr"
+                            role="group"
+                            aria-labelledby="beat-unit-label"
+                            aria-describedby="beat-unit-help"
+                          >
                             {BEAT_UNIT_OPTIONS.map((value) => (
                               <button
                                 type="button"
                                 key={value}
                                 className={beatUnit === value ? "selected" : ""}
-                                onClick={() => setBeatUnit(value)}
+                                onClick={() => updateBeatUnit(value)}
                                 aria-pressed={beatUnit === value}
+                                aria-label={`יחידת פעימה ${value}: ${BEAT_UNIT_DESCRIPTIONS[value]}`}
                               >
                                 {value}
                               </button>
                             ))}
                           </div>
                         </div>
+                        <p id="beat-unit-help" className="beat-unit-help" aria-live="polite">
+                          {BEAT_UNIT_DESCRIPTIONS[beatUnit]}
+                        </p>
                       </div>
                     </div>
                   </fieldset>

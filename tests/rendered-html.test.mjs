@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { secondsPerBeat } from "../app/metronome-timing.mjs";
 
 const hebrewRtlDocument =
   /<html(?=[^>]*\blang=["']he["'])(?=[^>]*\bdir=["']rtl["'])[^>]*>/i;
@@ -100,7 +101,36 @@ test("server-renders the current metronome controls", async () => {
   );
   assert.match(html, /aria-label="מהירות המטרונום ב־BPM"/);
   assert.match(html, /<legend>משקל<\/legend>/);
+  assert.match(html, /id="beat-unit-label">יחידת פעימה<\/span>/);
+  assert.match(html, /id="beat-unit-help"[^>]*>רבע — טיקטוק אחד בכל פעימה<\/p>/);
   assert.match(html, /60 BPM · 4\/4/);
+});
+
+test("beat unit changes the metronome interval", () => {
+  const bpm = 60;
+  const expectedIntervals = [
+    [2, 2],
+    [4, 1],
+    [8, 0.5],
+    [16, 0.25],
+    [1, 4],
+  ];
+
+  for (const [beatUnit, expectedSeconds] of expectedIntervals) {
+    assert.equal(
+      secondsPerBeat(bpm, beatUnit),
+      expectedSeconds,
+      `${beatUnit} as the beat unit should produce a ${expectedSeconds}s interval at ${bpm} BPM`,
+    );
+  }
+});
+
+test("the scheduler reads the selected beat unit and resyncs while playing", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /secondsPerBeat\(bpmRef\.current, beatUnitRef\.current\)/);
+  assert.match(page, /beatUnitRef\.current = value;/);
+  assert.match(page, /nextNoteTimeRef\.current = context\.currentTime \+ 0\.05;/);
 });
 
 test("uses the smooth Hebrew UI typeface instead of the old mono display font", async () => {

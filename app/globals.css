@@ -218,6 +218,7 @@ button, a { touch-action: manipulation; }
 .signature-builder { display: grid; gap: 14px; }
 .signature-row { display: grid; min-width: 0; gap: 7px; }
 .signature-row > span { color: #6f7e77; font-size: 0.72rem; }
+.beat-unit-help { margin: 0; color: var(--muted); font-size: 0.7rem; line-height: 1.45; }
 .option-scroller { width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: thin; scrollbar-color: #3c4b45 transparent; }
 .meter-segments { display: grid; width: max-content; gap: 5px; border: 1px solid var(--line); border-radius: 15px; background: #0e1512; padding: 5px; }
 .meter-segments.beat-options { grid-template-columns: repeat(7, 44px); }
