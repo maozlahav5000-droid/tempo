@@ -5,6 +5,54 @@ import test from "node:test";
 const hebrewRtlDocument =
   /<html(?=[^>]*\blang=["']he["'])(?=[^>]*\bdir=["']rtl["'])[^>]*>/i;
 
+function inspectPcmWav(buffer) {
+  assert.equal(buffer.toString("ascii", 0, 4), "RIFF");
+  assert.equal(buffer.toString("ascii", 8, 12), "WAVE");
+
+  let format;
+  let pcmData;
+  for (let offset = 12; offset + 8 <= buffer.length;) {
+    const chunkId = buffer.toString("ascii", offset, offset + 4);
+    const chunkSize = buffer.readUInt32LE(offset + 4);
+    const chunkStart = offset + 8;
+    if (chunkId === "fmt ") {
+      format = {
+        audioFormat: buffer.readUInt16LE(chunkStart),
+        channels: buffer.readUInt16LE(chunkStart + 2),
+        sampleRate: buffer.readUInt32LE(chunkStart + 4),
+        bitsPerSample: buffer.readUInt16LE(chunkStart + 14),
+      };
+    } else if (chunkId === "data") {
+      pcmData = buffer.subarray(chunkStart, chunkStart + chunkSize);
+    }
+    offset = chunkStart + chunkSize + (chunkSize % 2);
+  }
+
+  assert.ok(format, "WAV fmt chunk is missing");
+  assert.ok(pcmData, "WAV data chunk is missing");
+  let peak = 0;
+  let sampleSum = 0;
+  const tailSampleCount = Math.round(format.sampleRate * format.channels * 0.02);
+  let tailSquareSum = 0;
+  let sampleIndex = 0;
+  const totalSamples = pcmData.length / 2;
+  for (let offset = 0; offset + 2 <= pcmData.length; offset += 2) {
+    const value = pcmData.readInt16LE(offset) / 32768;
+    peak = Math.max(peak, Math.abs(value));
+    sampleSum += value;
+    if (sampleIndex >= totalSamples - tailSampleCount) tailSquareSum += value * value;
+    sampleIndex += 1;
+  }
+  const bytesPerSecond = format.sampleRate * format.channels * (format.bitsPerSample / 8);
+  return {
+    ...format,
+    duration: pcmData.length / bytesPerSecond,
+    peak,
+    dc: sampleSum / totalSamples,
+    tailRms: Math.sqrt(tailSquareSum / tailSampleCount),
+  };
+}
+
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
@@ -66,6 +114,25 @@ test("keeps lesson-note bullets visible after the Tailwind list reset", async ()
     css,
     /\.rich-notes-editor li::marker\s*\{[^}]*\bcolor:\s*#16866d\s*;/i,
   );
+});
+
+test("ships the reference metronome sounds as strong mono PCM samples", async () => {
+  const sampleUrls = [
+    new URL("../public/audio/metronome-accent.wav", import.meta.url),
+    new URL("../public/audio/metronome-beat.wav", import.meta.url),
+  ];
+
+  for (const sampleUrl of sampleUrls) {
+    const sample = inspectPcmWav(await readFile(sampleUrl));
+    assert.equal(sample.audioFormat, 1);
+    assert.equal(sample.channels, 1);
+    assert.equal(sample.sampleRate, 44_100);
+    assert.equal(sample.bitsPerSample, 16);
+    assert.ok(sample.duration >= 0.23 && sample.duration <= 0.25);
+    assert.ok(sample.peak >= 0.68 && sample.peak <= 0.78);
+    assert.ok(Math.abs(sample.dc) < 0.001);
+    assert.ok(sample.tailRms < 0.002);
+  }
 });
 
 test("ships both violin projects and the Lomedet Laof player", async () => {

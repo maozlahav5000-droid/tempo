@@ -9,6 +9,10 @@ const BPM_PRESETS = [50, 60] as const;
 const MAX_LIBRARY_FILE_SIZE = 20 * 1024 * 1024;
 const METER_OPTIONS = [7, 6, 5, 4, 3, 2, 1] as const;
 const BEAT_UNIT_OPTIONS = [16, 8, 4, 2, 1] as const;
+const METRONOME_CLICK_URLS = {
+  accent: "/audio/metronome-accent.wav",
+  beat: "/audio/metronome-beat.wav",
+} as const;
 type BeatsPerBar = (typeof METER_OPTIONS)[number];
 type BeatUnit = (typeof BEAT_UNIT_OPTIONS)[number];
 type ViewName = "metronome" | "notes" | "sheet" | "projects";
@@ -59,6 +63,17 @@ type MetronomeDragState = {
   offsetY: number;
   width: number;
   height: number;
+};
+
+type MetronomeClickBuffers = {
+  accent: AudioBuffer;
+  beat: AudioBuffer;
+};
+
+type ActiveMetronomeSource = {
+  source: AudioScheduledSourceNode;
+  gain: GainNode;
+  cleanup: () => void;
 };
 
 type LessonNote = {
@@ -505,12 +520,15 @@ export default function Home() {
   const [isFloatingMetronomeMinimized, setIsFloatingMetronomeMinimized] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
+  const metronomeOutputRef = useRef<GainNode | null>(null);
+  const clickBuffersRef = useRef<MetronomeClickBuffers | null>(null);
+  const clickBuffersPromiseRef = useRef<Promise<MetronomeClickBuffers> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const nextNoteTimeRef = useRef(0);
   const beatRef = useRef(0);
   const bpmRef = useRef(bpm);
   const beatsPerBarRef = useRef<BeatsPerBar>(beatsPerBar);
-  const sourcesRef = useRef(new Set<OscillatorNode>());
+  const sourcesRef = useRef(new Set<ActiveMetronomeSource>());
   const visualTimersRef = useRef(new Set<ReturnType<typeof setTimeout>>());
   const generationRef = useRef(0);
   const runningRef = useRef(false);
@@ -626,16 +644,33 @@ export default function Home() {
     visualTimersRef.current.clear();
   }, []);
 
-  const clearScheduledAudio = useCallback(() => {
-    for (const source of sourcesRef.current) {
+  const clearScheduledAudio = useCallback((fadeOut = false) => {
+    const sources = Array.from(sourcesRef.current);
+    sourcesRef.current.clear();
+    const context = audioContextRef.current;
+    const canFade = fadeOut && context && context.state !== "closed";
+    const now = canFade ? context.currentTime : 0;
+
+    for (const activeSource of sources) {
       try {
-        source.stop();
-        source.disconnect();
+        if (canFade) {
+          activeSource.gain.gain.cancelScheduledValues(now);
+          activeSource.gain.gain.setValueAtTime(
+            Math.max(0.0001, activeSource.gain.gain.value),
+            now,
+          );
+          activeSource.gain.gain.linearRampToValueAtTime(0.0001, now + 0.008);
+          activeSource.source.stop(now + 0.012);
+        } else {
+          activeSource.source.onended = null;
+          activeSource.source.stop();
+          activeSource.cleanup();
+        }
       } catch {
         // The short metronome click may already have ended.
+        activeSource.cleanup();
       }
     }
-    sourcesRef.current.clear();
   }, []);
 
   const stopMetronome = useCallback(() => {
@@ -649,37 +684,105 @@ export default function Home() {
       timerRef.current = null;
     }
 
-    clearScheduledAudio();
+    clearScheduledAudio(true);
     clearVisualTimers();
     setCurrentBeat(null);
     setIsPlaying(false);
   }, [clearScheduledAudio, clearVisualTimers]);
 
+  const loadClickBuffers = useCallback((context: AudioContext) => {
+    if (clickBuffersRef.current) return Promise.resolve(clickBuffersRef.current);
+    if (clickBuffersPromiseRef.current) return clickBuffersPromiseRef.current;
+
+    const loadBuffer = async (url: string) => {
+      const response = await fetch(url, { cache: "force-cache" });
+      if (!response.ok) throw new Error(`Unable to load metronome sound: ${response.status}`);
+      return context.decodeAudioData(await response.arrayBuffer());
+    };
+
+    const pending = Promise.all([
+      loadBuffer(METRONOME_CLICK_URLS.accent),
+      loadBuffer(METRONOME_CLICK_URLS.beat),
+    ])
+      .then(([accent, beat]) => {
+        const buffers = { accent, beat };
+        clickBuffersRef.current = buffers;
+        return buffers;
+      })
+      .catch((error) => {
+        clickBuffersPromiseRef.current = null;
+        throw error;
+      });
+
+    clickBuffersPromiseRef.current = pending;
+    return pending;
+  }, []);
+
   const scheduleClick = useCallback((beat: number, time: number) => {
     const context = audioContextRef.current;
     if (!context) return;
 
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
+    const destination = metronomeOutputRef.current ?? context.destination;
     const isAccent = beat === 0;
+    const buffer = isAccent ? clickBuffersRef.current?.accent : clickBuffersRef.current?.beat;
+    if (buffer) {
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      gain.gain.setValueAtTime(1, time);
+      source.connect(gain);
+      gain.connect(destination);
+      const activeSource: ActiveMetronomeSource = {
+        source,
+        gain,
+        cleanup: () => {
+          sourcesRef.current.delete(activeSource);
+          source.disconnect();
+          gain.disconnect();
+        },
+      };
+      sourcesRef.current.add(activeSource);
+      source.onended = () => {
+        activeSource.cleanup();
+      };
+      source.start(time);
+      return;
+    }
 
-    oscillator.type = "triangle";
-    oscillator.frequency.setValueAtTime(isAccent ? 940 : 700, time);
-    oscillator.frequency.exponentialRampToValueAtTime(isAccent ? 560 : 420, time + 0.055);
+    // Quiet fallback for an unavailable sample. The shipped WAV files are the normal path.
+    const oscillator = context.createOscillator();
+    const tone = context.createBiquadFilter();
+    const gain = context.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(isAccent ? 1500 : 1000, time);
+    oscillator.frequency.exponentialRampToValueAtTime(isAccent ? 1080 : 720, time + 0.08);
+    tone.type = "lowpass";
+    tone.frequency.setValueAtTime(2800, time);
+    tone.Q.setValueAtTime(0.7, time);
     gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.exponentialRampToValueAtTime(isAccent ? 0.22 : 0.15, time + 0.003);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.09);
+    gain.gain.exponentialRampToValueAtTime(isAccent ? 0.52 : 0.46, time + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.14);
 
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    sourcesRef.current.add(oscillator);
+    oscillator.connect(tone);
+    tone.connect(gain);
+    gain.connect(destination);
+    const activeSource: ActiveMetronomeSource = {
+      source: oscillator,
+      gain,
+      cleanup: () => {
+        sourcesRef.current.delete(activeSource);
+        oscillator.disconnect();
+        tone.disconnect();
+        gain.disconnect();
+      },
+    };
+    sourcesRef.current.add(activeSource);
     oscillator.onended = () => {
-      sourcesRef.current.delete(oscillator);
-      oscillator.disconnect();
-      gain.disconnect();
+      activeSource.cleanup();
     };
     oscillator.start(time);
-    oscillator.stop(time + 0.095);
+    oscillator.stop(time + 0.145);
   }, []);
 
   const scheduleVisualBeat = useCallback((beat: number, time: number) => {
@@ -712,6 +815,18 @@ export default function Home() {
       if (!audioContextRef.current) audioContextRef.current = new AudioContextClass();
       const context = audioContextRef.current;
       if (context.state === "suspended") await context.resume();
+      if (!metronomeOutputRef.current) {
+        const output = context.createGain();
+        output.connect(context.destination);
+        metronomeOutputRef.current = output;
+      }
+      metronomeOutputRef.current.gain.cancelScheduledValues(context.currentTime);
+      metronomeOutputRef.current.gain.setValueAtTime(1, context.currentTime);
+      try {
+        await loadClickBuffers(context);
+      } catch {
+        // Keep the metronome usable with the softer synthesized fallback.
+      }
       if (generation !== generationRef.current) return;
 
       startingRef.current = false;
@@ -725,10 +840,19 @@ export default function Home() {
         const currentContext = audioContextRef.current;
         if (!currentContext || !runningRef.current || generation !== generationRef.current) return;
 
+        const secondsPerBeat = 60 / bpmRef.current;
+        if (nextNoteTimeRef.current < currentContext.currentTime - 0.02) {
+          const missedBeats = Math.floor(
+            (currentContext.currentTime - nextNoteTimeRef.current) / secondsPerBeat,
+          ) + 1;
+          nextNoteTimeRef.current += missedBeats * secondsPerBeat;
+          beatRef.current = (beatRef.current + missedBeats) % beatsPerBarRef.current;
+        }
+
         while (nextNoteTimeRef.current < currentContext.currentTime + 0.1) {
           scheduleClick(beatRef.current, nextNoteTimeRef.current);
           scheduleVisualBeat(beatRef.current, nextNoteTimeRef.current);
-          nextNoteTimeRef.current += 60 / bpmRef.current;
+          nextNoteTimeRef.current += secondsPerBeat;
           beatRef.current = (beatRef.current + 1) % beatsPerBarRef.current;
         }
       };
@@ -741,7 +865,7 @@ export default function Home() {
       runningRef.current = false;
       setIsPlaying(false);
     }
-  }, [clearVisualTimers, scheduleClick, scheduleVisualBeat]);
+  }, [clearVisualTimers, loadClickBuffers, scheduleClick, scheduleVisualBeat]);
 
   const toggleMetronome = useCallback(() => {
     if (runningRef.current || startingRef.current) stopMetronome();
@@ -1074,6 +1198,8 @@ export default function Home() {
       lessonSaveTimers.clear();
       clearScheduledAudio();
       clearVisualTimers();
+      metronomeOutputRef.current?.disconnect();
+      metronomeOutputRef.current = null;
       void audioContextRef.current?.close();
     };
   }, [clearScheduledAudio, clearVisualTimers, flushLessonSave]);
