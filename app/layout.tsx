@@ -10,7 +10,7 @@ const heebo = Heebo({
 
 export const metadata: Metadata = {
   title: "TEMPO",
-  description: "מטרונום, שיעורים, תווים ופרויקטי תרגול במקום אחד.",
+  description: "מטרונום, שיעורים, תווים ושירים לתרגול במקום אחד.",
   icons: {
     icon: "/favicon.svg?v=tempo-note",
     shortcut: "/favicon.svg?v=tempo-note",

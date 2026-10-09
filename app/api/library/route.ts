@@ -7,6 +7,7 @@ import {
   listLibraryFiles,
   listLibraryFolders,
   updateLibraryFile,
+  isLibrarySection,
   type LibrarySection,
 } from "../../../db/library";
 
@@ -19,10 +20,6 @@ const ALLOWED_CONTENT_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
-
-function isLibrarySection(value: unknown): value is LibrarySection {
-  return value === "warmup" || value === "practice";
-}
 
 function normalizedContentType(file: File) {
   if (ALLOWED_CONTENT_TYPES.has(file.type)) return file.type;

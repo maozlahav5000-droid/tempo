@@ -1,14 +1,11 @@
 import {
   createLibraryFolder,
   deleteLibraryFolder,
+  isLibrarySection,
   listLibraryFolders,
   updateLibraryFolder,
   type LibrarySection,
 } from "../../../db/library";
-
-function isLibrarySection(value: unknown): value is LibrarySection {
-  return value === "warmup" || value === "practice";
-}
 
 function normalizeName(value: unknown) {
   return typeof value === "string" ? value.trim().slice(0, 80) : "";

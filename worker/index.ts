@@ -74,7 +74,7 @@ function serviceUnavailableResponse(message: string) {
 <body style="margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;box-sizing:border-box;color:#f5f7f6;background:#0a0f0d;font-family:Arial,sans-serif;text-align:center">
   <main style="max-width:460px;border:1px solid #2b3833;border-radius:22px;background:#121a17;padding:28px">
     <div style="font-size:42px" aria-hidden="true">♪</div>
-    <h1 style="margin:12px 0 8px">הפרויקט אינו זמין כרגע</h1>
+    <h1 style="margin:12px 0 8px">השירות אינו זמין כרגע</h1>
     <p style="margin:0;color:#a8b5af;line-height:1.7">${message}</p>
   </main>
 </body>
@@ -152,7 +152,7 @@ const worker = {
     // first.  Serve those files only after the private-access gate above.
     if (url.pathname.startsWith("/projects/")) {
       if (!env.ASSETS) {
-        return serviceUnavailableResponse("קובצי הפרויקט לא הוגדרו כראוי. יש לנסות שוב לאחר רענון.");
+        return serviceUnavailableResponse("קובצי השיר לא הוגדרו כראוי. יש לנסות שוב לאחר רענון.");
       }
       return env.ASSETS.fetch(request);
     }

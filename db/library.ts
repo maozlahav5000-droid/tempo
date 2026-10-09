@@ -1,6 +1,11 @@
 import { env } from "cloudflare:workers";
 
-export type LibrarySection = "warmup" | "practice";
+export const LIBRARY_SECTIONS = ["warmup", "practice", "personal"] as const;
+export type LibrarySection = (typeof LIBRARY_SECTIONS)[number];
+
+export function isLibrarySection(value: unknown): value is LibrarySection {
+  return typeof value === "string" && LIBRARY_SECTIONS.includes(value as LibrarySection);
+}
 
 export type LibraryFolderRecord = {
   id: string;
@@ -89,7 +94,7 @@ async function initializeLibrarySchema() {
       CREATE TABLE IF NOT EXISTS practice_folders (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        section TEXT NOT NULL CHECK (section IN ('warmup', 'practice')),
+        section TEXT NOT NULL CHECK (section IN ('warmup', 'practice', 'personal')),
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
@@ -100,14 +105,12 @@ async function initializeLibrarySchema() {
         name TEXT NOT NULL,
         content_type TEXT NOT NULL,
         size INTEGER NOT NULL,
-        section TEXT NOT NULL CHECK (section IN ('warmup', 'practice')),
+        section TEXT NOT NULL CHECK (section IN ('warmup', 'practice', 'personal')),
         folder_id TEXT,
         storage_key TEXT NOT NULL UNIQUE,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `),
-    db.prepare("CREATE INDEX IF NOT EXISTS practice_folders_section_idx ON practice_folders(section)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS practice_files_section_idx ON practice_files(section)"),
   ]);
 
   const columns = await db.prepare("PRAGMA table_info(practice_files)").all<{ name: string }>();
@@ -115,10 +118,76 @@ async function initializeLibrarySchema() {
     await db.prepare("ALTER TABLE practice_files ADD COLUMN folder_id TEXT").run();
   }
 
+  await migrateLegacySectionConstraints(db);
+
   await db.batch([
+    db.prepare("CREATE INDEX IF NOT EXISTS practice_folders_section_idx ON practice_folders(section)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS practice_files_section_idx ON practice_files(section)"),
     db.prepare("CREATE INDEX IF NOT EXISTS practice_files_folder_idx ON practice_files(folder_id)"),
     db.prepare("PRAGMA optimize"),
   ]);
+}
+
+function needsSectionConstraintMigration(sql: string | null | undefined) {
+  return Boolean(sql && /\bCHECK\s*\(/i.test(sql) && !/['"]personal['"]/i.test(sql));
+}
+
+async function migrateLegacySectionConstraints(db: D1Database) {
+  const [folderSchema, fileSchema] = await Promise.all([
+    db
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'practice_folders'")
+      .first<{ sql: string | null }>(),
+    db
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'practice_files'")
+      .first<{ sql: string | null }>(),
+  ]);
+
+  if (needsSectionConstraintMigration(folderSchema?.sql)) {
+    await db.batch([
+      db.prepare("DROP TABLE IF EXISTS practice_folders_section_upgrade"),
+      db.prepare(`
+        CREATE TABLE practice_folders_section_upgrade (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          section TEXT NOT NULL CHECK (section IN ('warmup', 'practice', 'personal')),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.prepare(`
+        INSERT INTO practice_folders_section_upgrade (id, name, section, created_at, updated_at)
+        SELECT id, name, section, created_at, updated_at FROM practice_folders
+      `),
+      db.prepare("DROP TABLE practice_folders"),
+      db.prepare("ALTER TABLE practice_folders_section_upgrade RENAME TO practice_folders"),
+    ]);
+  }
+
+  if (needsSectionConstraintMigration(fileSchema?.sql)) {
+    await db.batch([
+      db.prepare("DROP TABLE IF EXISTS practice_files_section_upgrade"),
+      db.prepare(`
+        CREATE TABLE practice_files_section_upgrade (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          content_type TEXT NOT NULL,
+          size INTEGER NOT NULL,
+          section TEXT NOT NULL CHECK (section IN ('warmup', 'practice', 'personal')),
+          folder_id TEXT,
+          storage_key TEXT NOT NULL UNIQUE,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.prepare(`
+        INSERT INTO practice_files_section_upgrade
+          (id, name, content_type, size, section, folder_id, storage_key, created_at)
+        SELECT id, name, content_type, size, section, folder_id, storage_key, created_at
+        FROM practice_files
+      `),
+      db.prepare("DROP TABLE practice_files"),
+      db.prepare("ALTER TABLE practice_files_section_upgrade RENAME TO practice_files"),
+    ]);
+  }
 }
 
 export function ensureLibrarySchema() {

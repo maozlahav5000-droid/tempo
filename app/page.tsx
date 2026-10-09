@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ProjectsView, { type ProjectId } from "./components/ProjectsView";
+import { chooseInitialLibrarySelection } from "./library-selection.mjs";
 import { secondsPerBeat } from "./metronome-timing.mjs";
 
 const MIN_BPM = 40;
@@ -24,7 +25,12 @@ const BEAT_UNIT_DESCRIPTIONS: Record<BeatUnit, string> = {
   16: "חלק שישה־עשר — טיקטוק מהיר פי ארבעה ביחס לרבע",
 };
 type ViewName = "metronome" | "notes" | "sheet" | "projects";
-type SheetSection = "warmup" | "practice";
+const SHEET_SECTIONS = [
+  { id: "warmup", label: "חימום" },
+  { id: "practice", label: "תרגול" },
+  { id: "personal", label: "פרויקטים אישיים" },
+] as const;
+type SheetSection = (typeof SHEET_SECTIONS)[number]["id"];
 const ALL_FOLDERS = "all";
 
 type LibraryFolder = {
@@ -1078,21 +1084,16 @@ export default function Home() {
       const payload = (await response.json()) as { files?: LibraryFile[]; folders?: LibraryFolder[] };
       const files = Array.isArray(payload.files) ? payload.files : [];
       const folders = Array.isArray(payload.folders) ? payload.folders : [];
+      const initialSelection = chooseInitialLibrarySelection(files, folders);
+      const nextSection = initialSelection.section as SheetSection;
       setLibraryFiles(files);
       setLibraryFolders(folders);
       setActiveFolderFilter((current) => {
         if (current === ALL_FOLDERS || folders.some((folder) => folder.id === current)) return current;
         return ALL_FOLDERS;
       });
-      setActiveSheetSection(
-        files.some((file) => file.section === "warmup") || folders.some((folder) => folder.section === "warmup")
-          ? "warmup"
-          : files[0]?.section ?? folders[0]?.section ?? "warmup",
-      );
-      setSelectedSheetId((current) => {
-        if (current && files.some((file) => file.id === current)) return current;
-        return files.find((file) => file.section === "warmup")?.id ?? files[0]?.id ?? null;
-      });
+      setActiveSheetSection(nextSection);
+      setSelectedSheetId(initialSelection.fileId);
       setLibraryError(null);
     } catch (error) {
       setLibraryError(error instanceof Error ? error.message : "לא ניתן לטעון את מאגר הקבצים.");
@@ -1583,7 +1584,7 @@ export default function Home() {
     && (activeFolderFilter === ALL_FOLDERS || file.folderId === activeFolderFilter)
   ));
   const activeSheetFile = libraryFiles.find((file) => file.id === selectedSheetId) ?? null;
-  const activeSheetLabel = activeSheetSection === "warmup" ? "חימום" : "תרגול";
+  const activeSheetLabel = SHEET_SECTIONS.find((section) => section.id === activeSheetSection)?.label ?? "תווים";
   const activeFolder = libraryFolders.find((folder) => folder.id === activeFolderFilter) ?? null;
   const activeFolderLabel = activeFolderFilter === ALL_FOLDERS
     ? activeSheetLabel
@@ -1603,7 +1604,7 @@ export default function Home() {
     { id: "metronome", label: "מטרונום", icon: "◉" },
     { id: "notes", label: "שיעורים", icon: "≡" },
     { id: "sheet", label: "תווים", icon: "♬" },
-    { id: "projects", label: "פרויקטים", icon: "▦" },
+    { id: "projects", label: "שירים", icon: "▦" },
   ];
 
   return (
@@ -1925,20 +1926,19 @@ export default function Home() {
               {libraryError && <p className="library-alert" role="alert">{libraryError}</p>}
 
               <div className={`sheet-layout ${activeSheetFile ? "has-file" : "no-file"}`}>
-                <aside className="library-panel" aria-label="קבצי תווים לפי סוג תרגול" aria-busy={libraryLoading || librarySaving}>
-                  <div className="library-section-switch" role="group" aria-label="סוג התרגול">
-                    {(["warmup", "practice"] as const).map((section) => {
-                      const label = section === "warmup" ? "חימום" : "תרגול";
-                      const count = libraryFiles.filter((file) => file.section === section).length;
+                <aside className="library-panel" aria-label="קבצי תווים לפי קטגוריה" aria-busy={libraryLoading || librarySaving}>
+                  <div className="library-section-switch" role="group" aria-label="קטגוריית קבצים">
+                    {SHEET_SECTIONS.map((section) => {
+                      const count = libraryFiles.filter((file) => file.section === section.id).length;
                       return (
                         <button
                           type="button"
-                          key={section}
-                          className={activeSheetSection === section ? "active" : ""}
-                          onClick={() => selectSheetSection(section)}
-                          aria-pressed={activeSheetSection === section}
+                          key={section.id}
+                          className={activeSheetSection === section.id ? "active" : ""}
+                          onClick={() => selectSheetSection(section.id)}
+                          aria-pressed={activeSheetSection === section.id}
                         >
-                          <b>{label}</b>
+                          <b>{section.label}</b>
                           <small>{formatFileCount(count)}</small>
                         </button>
                       );
@@ -1975,8 +1975,9 @@ export default function Home() {
                         value={folderForm.section}
                         onChange={(event) => setFolderForm((current) => current ? { ...current, section: event.target.value as SheetSection } : current)}
                       >
-                        <option value="warmup">חימום</option>
-                        <option value="practice">תרגול</option>
+                        {SHEET_SECTIONS.map((section) => (
+                          <option key={section.id} value={section.id}>{section.label}</option>
+                        ))}
                       </select>
                       <div className="editor-actions">
                         <button type="submit" className="save-edit" disabled={librarySaving}>שמירה</button>
@@ -2088,8 +2089,9 @@ export default function Home() {
                                       folderId: "",
                                     } : current)}
                                   >
-                                    <option value="warmup">חימום</option>
-                                    <option value="practice">תרגול</option>
+                                    {SHEET_SECTIONS.map((section) => (
+                                      <option key={section.id} value={section.id}>{section.label}</option>
+                                    ))}
                                   </select>
                                 </label>
                                 <label>

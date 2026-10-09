@@ -54,16 +54,16 @@ export default function ProjectsView({
       <header className="page-heading projects-heading">
         <div>
           <p>{activeProjectData ? "מרחב תרגול אישי" : "תרגול לפי יצירה"}</p>
-          <h1 id="projects-title">{activeProjectData?.title ?? "פרויקטים"}</h1>
+          <h1 id="projects-title">{activeProjectData?.title ?? "שירים"}</h1>
         </div>
 
         {activeProjectData ? (
           <button type="button" className="projects-back-button" onClick={onCloseProject}>
             <span aria-hidden="true">→</span>
-            כל הפרויקטים
+            כל השירים
           </button>
         ) : (
-          <span className="projects-count">{PROJECTS.length} פרויקטים</span>
+          <span className="projects-count">{PROJECTS.length} שירים</span>
         )}
       </header>
 
@@ -75,7 +75,7 @@ export default function ProjectsView({
               type="button"
               className="project-card"
               onClick={() => onOpenProject(project.id)}
-              aria-label={`פתיחת הפרויקט ${project.title}`}
+              aria-label={`פתיחת השיר ${project.title}`}
             >
               <span
                 className={`project-card-art project-card-art--${project.artTone}`}
@@ -96,7 +96,7 @@ export default function ProjectsView({
               </span>
 
               <span className="project-card-action">
-                פתיחת הפרויקט
+                פתיחת השיר
                 <span aria-hidden="true">←</span>
               </span>
             </button>
@@ -111,7 +111,7 @@ export default function ProjectsView({
         >
           <div className="project-workspace-toolbar">
             <div>
-              <span>פרויקט כינור</span>
+              <span>שיר לכינור</span>
               <h2 id={`${activeProjectData.id}-project-title`}>{activeProjectData.title}</h2>
             </div>
             <a href={activeProjectData.path} target="_blank" rel="noreferrer">

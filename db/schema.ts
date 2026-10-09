@@ -6,7 +6,7 @@ export const practiceFolders = sqliteTable(
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
-    section: text("section", { enum: ["warmup", "practice"] }).notNull(),
+    section: text("section", { enum: ["warmup", "practice", "personal"] }).notNull(),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -20,7 +20,7 @@ export const practiceFiles = sqliteTable(
     name: text("name").notNull(),
     contentType: text("content_type").notNull(),
     size: integer("size").notNull(),
-    section: text("section", { enum: ["warmup", "practice"] }).notNull(),
+    section: text("section", { enum: ["warmup", "practice", "personal"] }).notNull(),
     folderId: text("folder_id"),
     storageKey: text("storage_key").notNull().unique(),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),

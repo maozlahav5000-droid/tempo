@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import {
+  chooseInitialLibrarySelection,
+  LIBRARY_SECTION_ORDER,
+} from "../app/library-selection.mjs";
 import { secondsPerBeat } from "../app/metronome-timing.mjs";
 
 const hebrewRtlDocument =
@@ -269,6 +273,79 @@ test("ships both violin projects and the promoted Lomedet Laof player", async ()
   assert.doesNotMatch(builtAssetsIgnore, /lomedet-laof-experiment/);
 });
 
+test("labels the song area consistently and keeps the internal project routes stable", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const projectsView = await readFile(
+    new URL("../app/components/ProjectsView.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(page, /\{ id: "projects", label: "שירים", icon: "▦" \}/);
+  assert.match(projectsView, /activeProjectData\?\.title \?\? "שירים"/);
+  assert.match(projectsView, /כל השירים/);
+  assert.match(projectsView, /\{PROJECTS\.length\} שירים/);
+  assert.match(projectsView, /פתיחת השיר/);
+  assert.doesNotMatch(projectsView, />פרויקטים</);
+  assert.match(projectsView, /path: "\/projects\/shkiot-adumot\/index\.html"/);
+  assert.match(projectsView, /path: "\/projects\/lomedet-laof\/index\.html"/);
+});
+
+test("defines three complete sheet-library categories across UI, API, and storage", async () => {
+  const [page, css, library, schema, libraryRoute, foldersRoute] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../db/library.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/library/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/folders/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.deepEqual(LIBRARY_SECTION_ORDER, ["warmup", "practice", "personal"]);
+  assert.match(page, /\{ id: "warmup", label: "חימום" \}/);
+  assert.match(page, /\{ id: "practice", label: "תרגול" \}/);
+  assert.match(page, /\{ id: "personal", label: "פרויקטים אישיים" \}/);
+  assert.match(page, /SHEET_SECTIONS\.map\(\(section\) =>/);
+  assert.match(css, /\.library-section-switch\s*\{[^}]*grid-template-columns:\s*repeat\(3,/);
+  assert.match(css, /\.library-section-switch button b\s*\{[^}]*white-space:\s*normal/);
+
+  assert.match(library, /LIBRARY_SECTIONS = \["warmup", "practice", "personal"\] as const/);
+  assert.match(library, /CHECK \(section IN \('warmup', 'practice', 'personal'\)\)/);
+  assert.match(schema, /enum: \["warmup", "practice", "personal"\]/);
+  assert.match(libraryRoute, /\bisLibrarySection\b/);
+  assert.match(foldersRoute, /\bisLibrarySection\b/);
+  assert.doesNotMatch(libraryRoute, /value === "warmup" \|\| value === "practice"/);
+  assert.doesNotMatch(foldersRoute, /value === "warmup" \|\| value === "practice"/);
+});
+
+test("initial sheet selection never crosses category boundaries", () => {
+  assert.deepEqual(
+    chooseInitialLibrarySelection(
+      [
+        { id: "warmup-file", section: "warmup" },
+        { id: "personal-file", section: "personal" },
+      ],
+      [],
+    ),
+    { section: "warmup", fileId: "warmup-file" },
+  );
+
+  assert.deepEqual(
+    chooseInitialLibrarySelection(
+      [{ id: "personal-file", section: "personal" }],
+      [],
+    ),
+    { section: "personal", fileId: "personal-file" },
+  );
+
+  assert.deepEqual(
+    chooseInitialLibrarySelection(
+      [{ id: "personal-file", section: "personal" }],
+      [{ id: "empty-warmup", section: "warmup" }],
+    ),
+    { section: "warmup", fileId: null },
+  );
+});
+
 test("routes project assets through the private-access worker", async () => {
   const wranglerConfig = JSON.parse(
     await readFile(new URL("../dist/server/wrangler.json", import.meta.url), "utf8"),
@@ -317,5 +394,5 @@ test("routes project assets through the private-access worker", async () => {
   );
   assert.equal(missingAssets.status, 503);
   assert.equal(missingAssets.headers.get("cache-control"), "no-store");
-  assert.match(await missingAssets.text(), /הפרויקט אינו זמין כרגע/);
+  assert.match(await missingAssets.text(), /השירות אינו זמין כרגע/);
 });
