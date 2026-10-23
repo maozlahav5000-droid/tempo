@@ -114,6 +114,23 @@ button, a { touch-action: manipulation; }
 
 .studio-content { min-width: 0; min-height: 100vh; min-height: 100dvh; grid-area: content; direction: rtl; }
 
+.guest-mode-notice {
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin-block: 12px 0;
+  margin-inline: auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line));
+  border-radius: 999px;
+  color: var(--accent-soft);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  padding-block: 8px;
+  padding-inline: 14px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
 .view-section {
   width: min(100%, 1240px);
   min-height: 100vh;
@@ -744,6 +761,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   }
   .brand-block, .sidebar-tip { display: none; }
   .side-nav { display: grid; height: 100%; grid-template-columns: repeat(4, 1fr); gap: 6px; direction: rtl; }
+  .side-nav.guest-nav { grid-template-columns: minmax(0, 1fr); }
   .nav-button { min-width: 0; min-height: 54px; justify-content: center; flex-direction: column; gap: 1px; border-radius: 12px; padding: 3px 6px; font-size: 0.7rem; }
   .nav-button .nav-icon { height: 22px; font-size: 1rem; }
   .nav-button .nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

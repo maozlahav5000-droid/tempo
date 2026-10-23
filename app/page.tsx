@@ -25,6 +25,7 @@ const BEAT_UNIT_DESCRIPTIONS: Record<BeatUnit, string> = {
   16: "חלק שישה־עשר — טיקטוק מהיר פי ארבעה ביחס לרבע",
 };
 type ViewName = "metronome" | "notes" | "sheet" | "projects";
+type AccessMode = "loading" | "owner" | "guest";
 const SHEET_SECTIONS = [
   { id: "warmup", label: "חימום" },
   { id: "practice", label: "תרגול" },
@@ -506,6 +507,7 @@ function RichNotesEditor({
 
 export default function Home() {
   const [activeView, setActiveView] = useState<ViewName>("metronome");
+  const [accessMode, setAccessMode] = useState<AccessMode>("loading");
   const [activeProject, setActiveProject] = useState<ProjectId | null>(null);
   const [bpm, setBpm] = useState(60);
   const [bpmInput, setBpmInput] = useState("60");
@@ -1117,16 +1119,42 @@ export default function Home() {
   }, [activeView, toggleMetronome]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const loadAccessMode = async () => {
+      try {
+        const response = await fetch("/api/session", {
+          cache: "no-store",
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("Session unavailable");
+        const payload = (await response.json()) as { mode?: unknown };
+        if (payload.mode !== "owner" && payload.mode !== "guest") throw new Error("Invalid session");
+        setAccessMode(payload.mode);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("Unable to determine TEMPO access mode", error);
+        setAccessMode("guest");
+      }
+    };
+    void loadAccessMode();
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (accessMode !== "owner") return;
     const timer = window.setTimeout(() => void loadLibrary(), 0);
     return () => window.clearTimeout(timer);
-  }, [loadLibrary]);
+  }, [accessMode, loadLibrary]);
 
   useEffect(() => {
+    if (accessMode !== "owner") return;
     const timer = window.setTimeout(() => void loadLessonNotes(), 0);
     return () => window.clearTimeout(timer);
-  }, [loadLessonNotes]);
+  }, [accessMode, loadLessonNotes]);
 
   useEffect(() => {
+    if (accessMode !== "owner") return;
     const flushPendingNotes = () => {
       for (const id of pendingLessonChangesRef.current.keys()) void flushLessonSave(id, true);
     };
@@ -1140,7 +1168,7 @@ export default function Home() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", flushPendingNotes);
     };
-  }, [flushLessonSave]);
+  }, [accessMode, flushLessonSave]);
 
   useEffect(() => {
     if (!isSheetExpanded) return;
@@ -1600,12 +1628,15 @@ export default function Home() {
         ? "השמירה נכשלה"
         : "נשמר אוטומטית";
 
-  const navItems: Array<{ id: ViewName; label: string; icon: string }> = [
+  const allNavItems: Array<{ id: ViewName; label: string; icon: string }> = [
     { id: "metronome", label: "מטרונום", icon: "◉" },
     { id: "notes", label: "שיעורים", icon: "≡" },
     { id: "sheet", label: "תווים", icon: "♬" },
     { id: "projects", label: "שירים", icon: "▦" },
   ];
+  const navItems = accessMode === "owner"
+    ? allNavItems
+    : allNavItems.filter((item) => item.id === "metronome");
 
   return (
     <main className="studio-shell">
@@ -1616,7 +1647,7 @@ export default function Home() {
             <div><b>TEMPO</b><small>סביבת תרגול</small></div>
           </div>
 
-          <nav className="side-nav" aria-label="ניווט ראשי">
+          <nav className={`side-nav ${accessMode === "owner" ? "" : "guest-nav"}`} aria-label="ניווט ראשי">
             {navItems.map((item) => (
               <button
                 type="button"
@@ -1638,6 +1669,11 @@ export default function Home() {
         </aside>
 
         <div className="studio-content">
+          {accessMode === "guest" && (
+            <div className="guest-mode-notice" role="status">
+              מצב אורח · התווים, השירים והשיעורים הפרטיים מוסתרים
+            </div>
+          )}
           {activeView === "metronome" && (
             <section className="view-section metronome-view" aria-labelledby="metronome-title">
               <header className="page-heading">

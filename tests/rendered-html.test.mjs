@@ -396,3 +396,147 @@ test("routes project assets through the private-access worker", async () => {
   assert.equal(missingAssets.headers.get("cache-control"), "no-store");
   assert.match(await missingAssets.text(), /השירות אינו זמין כרגע/);
 });
+
+test("gives guests a separate session while blocking every private data route", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("guest-access-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  let assetRequests = 0;
+  const env = {
+    TEMPO_ACCESS_TOKEN: "test-owner-token",
+    TEMPO_GUEST_TOKEN: "test-guest-token",
+    ASSETS: {
+      fetch: async () => {
+        assetRequests += 1;
+        return new Response("private song asset", { status: 200 });
+      },
+    },
+    DB: new Proxy({}, {
+      get() {
+        throw new Error("Guest request reached D1");
+      },
+    }),
+    FILES: new Proxy({}, {
+      get() {
+        throw new Error("Guest request reached KV");
+      },
+    }),
+  };
+  const ctx = {
+    waitUntil() {},
+    passThroughOnException() {},
+  };
+  const origin = "https://tempo.example.workers.dev";
+
+  const guestEntry = await worker.fetch(
+    new Request(`${origin}/?view=metronome&access=test-guest-token`),
+    env,
+    ctx,
+  );
+  assert.equal(guestEntry.status, 302);
+  assert.equal(guestEntry.headers.get("location"), "/?view=metronome");
+  assert.match(guestEntry.headers.get("set-cookie") ?? "", /^tempo_guest_access=test-guest-token;/);
+  assert.match(guestEntry.headers.get("set-cookie") ?? "", /HttpOnly/);
+  assert.match(guestEntry.headers.get("set-cookie") ?? "", /Secure/);
+  assert.match(guestEntry.headers.get("set-cookie") ?? "", /SameSite=Strict/);
+  assert.equal(guestEntry.headers.get("cache-control"), "no-store");
+  assert.equal(guestEntry.headers.get("referrer-policy"), "no-referrer");
+
+  const guestHeaders = { cookie: "tempo_guest_access=test-guest-token" };
+  const guestPage = await worker.fetch(
+    new Request(`${origin}/`, { headers: { ...guestHeaders, accept: "text/html" } }),
+    env,
+    ctx,
+  );
+  assert.equal(guestPage.status, 200);
+  const guestHtml = await guestPage.text();
+  assert.match(guestHtml, /<h1 id="metronome-title">מטרונום<\/h1>/);
+  assert.doesNotMatch(guestHtml, /<span class="nav-label">(?:שיעורים|תווים|שירים)<\/span>/);
+
+  const guestSession = await worker.fetch(
+    new Request(`${origin}/api/session`, { headers: guestHeaders }),
+    env,
+    ctx,
+  );
+  assert.equal(guestSession.status, 200);
+  assert.deepEqual(await guestSession.json(), {
+    mode: "guest",
+    privateContentAvailable: false,
+  });
+
+  const ownerSession = await worker.fetch(
+    new Request(`${origin}/api/session`, {
+      headers: { cookie: "tempo_cloud_access=test-owner-token" },
+    }),
+    env,
+    ctx,
+  );
+  assert.equal(ownerSession.status, 200);
+  assert.deepEqual(await ownerSession.json(), {
+    mode: "owner",
+    privateContentAvailable: true,
+  });
+
+  for (const [path, method] of [
+    ["/api/library", "GET"],
+    ["/api/library?file=private-id", "GET"],
+    ["/api/library?file=", "GET"],
+    ["/api/library", "POST"],
+    ["/api/library", "PATCH"],
+    ["/api/library", "DELETE"],
+    ["/api/folders", "GET"],
+    ["/api/folders", "POST"],
+    ["/api/notes", "GET"],
+    ["/api/notes", "POST"],
+    ["/api/future-private-route", "GET"],
+  ]) {
+    const response = await worker.fetch(
+      new Request(`${origin}${path}`, { method, headers: guestHeaders }),
+      env,
+      ctx,
+    );
+    assert.equal(response.status, 403, `${method} ${path} must be blocked for guests`);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await response.json(), { error: "התוכן הפרטי אינו זמין במצב אורח." });
+  }
+
+  const guestProject = await worker.fetch(
+    new Request(`${origin}/projects/lomedet-laof/index.html`, { headers: guestHeaders }),
+    env,
+    ctx,
+  );
+  assert.equal(guestProject.status, 403);
+  assert.equal(guestProject.headers.get("cache-control"), "no-store");
+  assert.match(await guestProject.text(), /התוכן הפרטי אינו זמין במצב אורח/);
+  assert.equal(assetRequests, 0);
+
+  const crossedCookies = [
+    "tempo_cloud_access=test-guest-token",
+    "tempo_guest_access=test-owner-token",
+  ];
+  for (const cookie of crossedCookies) {
+    const response = await worker.fetch(
+      new Request(`${origin}/api/session`, { headers: { cookie } }),
+      env,
+      ctx,
+    );
+    assert.equal(response.status, 401);
+  }
+});
+
+test("guest UI loads only the metronome and never starts private-data loaders", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /type AccessMode = "loading" \| "owner" \| "guest"/);
+  assert.match(page, /fetch\("\/api\/session"/);
+  assert.ok(
+    (page.match(/if \(accessMode !== "owner"\) return;/g) ?? []).length >= 3,
+    "library loading, lesson loading, and lesson flushing must all require owner access",
+  );
+  assert.match(page, /allNavItems\.filter\(\(item\) => item\.id === "metronome"\)/);
+  assert.match(page, /מצב אורח · התווים, השירים והשיעורים הפרטיים מוסתרים/);
+  assert.match(css, /\.side-nav\.guest-nav\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
+});

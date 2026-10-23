@@ -7,6 +7,7 @@ interface Env {
   DB: D1Database;
   FILES: KVNamespace;
   TEMPO_ACCESS_TOKEN?: string;
+  TEMPO_GUEST_TOKEN?: string;
   IMAGES?: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -16,13 +17,63 @@ interface Env {
   };
 }
 
-const ACCESS_COOKIE = "tempo_cloud_access";
+const OWNER_ACCESS_COOKIE = "tempo_cloud_access";
+const GUEST_ACCESS_COOKIE = "tempo_guest_access";
+type AccessMode = "owner" | "guest";
 
-function hasAccessCookie(cookieHeader: string | null, accessToken: string) {
+function hasAccessCookie(cookieHeader: string | null, cookieName: string, accessToken: string) {
   return (cookieHeader ?? "")
     .split(";")
     .map((part) => part.trim())
-    .some((part) => part === `${ACCESS_COOKIE}=${accessToken}`);
+    .some((part) => part === `${cookieName}=${accessToken}`);
+}
+
+function getAccessMode(cookieHeader: string | null, ownerToken: string, guestToken?: string): AccessMode | null {
+  if (hasAccessCookie(cookieHeader, OWNER_ACCESS_COOKIE, ownerToken)) return "owner";
+  if (guestToken && hasAccessCookie(cookieHeader, GUEST_ACCESS_COOKIE, guestToken)) return "guest";
+  return null;
+}
+
+function accessRedirect(url: URL, cookieName: string, accessToken: string) {
+  url.searchParams.delete("access");
+  const cleanLocation = `${url.pathname}${url.search}${url.hash}` || "/";
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: cleanLocation,
+      "Set-Cookie": `${cookieName}=${accessToken}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=31536000`,
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
+}
+
+function privateJson(payload: unknown, status = 200) {
+  return Response.json(payload, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+      "Vary": "Cookie",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
+function guestApiResponse(url: URL) {
+  if (!url.pathname.startsWith("/api/")) return null;
+  return privateJson({ error: "התוכן הפרטי אינו זמין במצב אורח." }, 403);
+}
+
+function guestPrivatePageResponse() {
+  return new Response("התוכן הפרטי אינו זמין במצב אורח.", {
+    status: 403,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
 }
 
 function accessRequiredResponse(request: Request) {
@@ -106,6 +157,8 @@ const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const accessToken = env.TEMPO_ACCESS_TOKEN?.trim();
+    const guestToken = env.TEMPO_GUEST_TOKEN?.trim();
+    let accessMode: AccessMode = "owner";
 
     // Keep the first cloud deployment closed even before the secret is added.
     // Local development remains available without a token.
@@ -116,22 +169,30 @@ const worker = {
     if (accessToken) {
       const queryToken = url.searchParams.get("access");
       if (queryToken === accessToken) {
-        url.searchParams.delete("access");
-        const cleanLocation = `${url.pathname}${url.search}${url.hash}` || "/";
-        return new Response(null, {
-          status: 302,
-          headers: {
-            Location: cleanLocation,
-            "Set-Cookie": `${ACCESS_COOKIE}=${accessToken}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=31536000`,
-            "Cache-Control": "no-store",
-            "Referrer-Policy": "no-referrer",
-          },
-        });
+        return accessRedirect(url, OWNER_ACCESS_COOKIE, accessToken);
+      }
+      if (guestToken && queryToken === guestToken) {
+        return accessRedirect(url, GUEST_ACCESS_COOKIE, guestToken);
       }
 
-      if (!hasAccessCookie(request.headers.get("Cookie"), accessToken)) {
+      const cookieAccessMode = getAccessMode(request.headers.get("Cookie"), accessToken, guestToken);
+      if (!cookieAccessMode) {
         return accessRequiredResponse(request);
       }
+      accessMode = cookieAccessMode;
+    }
+
+    if (url.pathname === "/api/session" && request.method === "GET") {
+      return privateJson({
+        mode: accessMode,
+        privateContentAvailable: accessMode === "owner",
+      });
+    }
+
+    if (accessMode === "guest") {
+      const guestResponse = guestApiResponse(url);
+      if (guestResponse) return guestResponse;
+      if (url.pathname.startsWith("/projects/")) return guestPrivatePageResponse();
     }
 
     if (url.pathname === "/_vinext/image") {
