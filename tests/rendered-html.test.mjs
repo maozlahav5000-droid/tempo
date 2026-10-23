@@ -428,7 +428,7 @@ test("gives shared users every visible feature behind their own access cookie", 
   assert.match(guestEntry.headers.get("set-cookie") ?? "", /^tempo_guest_access=test-guest-token;/);
   assert.match(guestEntry.headers.get("set-cookie") ?? "", /HttpOnly/);
   assert.match(guestEntry.headers.get("set-cookie") ?? "", /Secure/);
-  assert.match(guestEntry.headers.get("set-cookie") ?? "", /SameSite=Strict/);
+  assert.match(guestEntry.headers.get("set-cookie") ?? "", /SameSite=Lax/);
   assert.equal(guestEntry.headers.get("cache-control"), "no-store");
   assert.equal(guestEntry.headers.get("referrer-policy"), "no-referrer");
 

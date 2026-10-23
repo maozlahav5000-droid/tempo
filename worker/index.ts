@@ -41,7 +41,10 @@ function accessRedirect(url: URL, cookieName: string, accessToken: string) {
     status: 302,
     headers: {
       Location: cleanLocation,
-      "Set-Cookie": `${cookieName}=${accessToken}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=31536000`,
+      // Lax keeps the cookie protected from cross-site API requests while
+      // allowing the clean redirect to work when the link is opened from a
+      // mobile messaging app or another website.
+      "Set-Cookie": `${cookieName}=${accessToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`,
       "Cache-Control": "no-store",
       "Referrer-Policy": "no-referrer",
     },
