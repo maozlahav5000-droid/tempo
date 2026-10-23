@@ -984,14 +984,16 @@ export default function Home() {
 
     try {
       let notes = await fetchNotes();
-      let legacyChecked = false;
-      try {
-        legacyChecked = window.localStorage.getItem(LEGACY_NOTES_CHECKED_KEY) === "true";
-      } catch {
-        // The database remains the source of truth when browser storage is unavailable.
+      let legacyChecked = accessMode !== "owner";
+      if (accessMode === "owner") {
+        try {
+          legacyChecked = window.localStorage.getItem(LEGACY_NOTES_CHECKED_KEY) === "true";
+        } catch {
+          // The database remains the source of truth when browser storage is unavailable.
+        }
       }
 
-      if (!notes.length && !legacyChecked) {
+      if (accessMode === "owner" && !notes.length && !legacyChecked) {
         let legacy: LegacyLessonNote | null = null;
         try {
           const saved = window.localStorage.getItem(LEGACY_NOTES_KEY);
@@ -1026,7 +1028,7 @@ export default function Home() {
             // No legacy note needs migration.
           }
         }
-      } else if (notes.length) {
+      } else if (accessMode === "owner" && notes.length) {
         try {
           window.localStorage.setItem(LEGACY_NOTES_CHECKED_KEY, "true");
         } catch {
@@ -1065,7 +1067,7 @@ export default function Home() {
       setNotesStatus("error");
       setNotesError(error instanceof Error ? error.message : "לא ניתן לטעון את השיעורים.");
     }
-  }, []);
+  }, [accessMode]);
 
   const retryLessonNotes = () => {
     setNotesError(null);
@@ -1134,7 +1136,6 @@ export default function Home() {
       } catch (error) {
         if (controller.signal.aborted) return;
         console.error("Unable to determine TEMPO access mode", error);
-        setAccessMode("guest");
       }
     };
     void loadAccessMode();
@@ -1142,19 +1143,19 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (accessMode !== "owner") return;
+    if (accessMode === "loading") return;
     const timer = window.setTimeout(() => void loadLibrary(), 0);
     return () => window.clearTimeout(timer);
   }, [accessMode, loadLibrary]);
 
   useEffect(() => {
-    if (accessMode !== "owner") return;
+    if (accessMode === "loading") return;
     const timer = window.setTimeout(() => void loadLessonNotes(), 0);
     return () => window.clearTimeout(timer);
   }, [accessMode, loadLessonNotes]);
 
   useEffect(() => {
-    if (accessMode !== "owner") return;
+    if (accessMode === "loading") return;
     const flushPendingNotes = () => {
       for (const id of pendingLessonChangesRef.current.keys()) void flushLessonSave(id, true);
     };
@@ -1628,15 +1629,12 @@ export default function Home() {
         ? "השמירה נכשלה"
         : "נשמר אוטומטית";
 
-  const allNavItems: Array<{ id: ViewName; label: string; icon: string }> = [
+  const navItems: Array<{ id: ViewName; label: string; icon: string }> = [
     { id: "metronome", label: "מטרונום", icon: "◉" },
     { id: "notes", label: "שיעורים", icon: "≡" },
     { id: "sheet", label: "תווים", icon: "♬" },
     { id: "projects", label: "שירים", icon: "▦" },
   ];
-  const navItems = accessMode === "owner"
-    ? allNavItems
-    : allNavItems.filter((item) => item.id === "metronome");
 
   return (
     <main className="studio-shell">
@@ -1647,7 +1645,7 @@ export default function Home() {
             <div><b>TEMPO</b><small>סביבת תרגול</small></div>
           </div>
 
-          <nav className={`side-nav ${accessMode === "owner" ? "" : "guest-nav"}`} aria-label="ניווט ראשי">
+          <nav className="side-nav" aria-label="ניווט ראשי">
             {navItems.map((item) => (
               <button
                 type="button"
@@ -1669,11 +1667,6 @@ export default function Home() {
         </aside>
 
         <div className="studio-content">
-          {accessMode === "guest" && (
-            <div className="guest-mode-notice" role="status">
-              מצב אורח · התווים, השירים והשיעורים הפרטיים מוסתרים
-            </div>
-          )}
           {activeView === "metronome" && (
             <section className="view-section metronome-view" aria-labelledby="metronome-title">
               <header className="page-heading">

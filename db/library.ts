@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import type { TempoAccessMode } from "./schema";
 
 export const LIBRARY_SECTIONS = ["warmup", "practice", "personal"] as const;
 export type LibrarySection = (typeof LIBRARY_SECTIONS)[number];
@@ -50,7 +51,28 @@ type LibraryBindings = {
   FILES?: KVNamespace;
 };
 
-let schemaReady: Promise<void> | null = null;
+const LIBRARY_TABLES = {
+  owner: {
+    folders: "practice_folders",
+    files: "practice_files",
+    folderSectionIndex: "practice_folders_section_idx",
+    fileSectionIndex: "practice_files_section_idx",
+    fileFolderIndex: "practice_files_folder_idx",
+  },
+  guest: {
+    folders: "guest_practice_folders",
+    files: "guest_practice_files",
+    folderSectionIndex: "guest_practice_folders_section_idx",
+    fileSectionIndex: "guest_practice_files_section_idx",
+    fileFolderIndex: "guest_practice_files_folder_idx",
+  },
+} as const;
+
+const schemaReady: Partial<Record<TempoAccessMode, Promise<void>>> = {};
+
+function getTableNames(mode: TempoAccessMode) {
+  return LIBRARY_TABLES[mode];
+}
 
 function getBindings() {
   const bindings = env as unknown as LibraryBindings;
@@ -87,11 +109,16 @@ export function getLibraryStorage() {
   return getBindings().storage;
 }
 
-async function initializeLibrarySchema() {
+export function getLibraryStorageKey(id: string, mode: TempoAccessMode = "owner") {
+  return mode === "guest" ? `guest/practice-library/${id}` : `practice-library/${id}`;
+}
+
+async function initializeLibrarySchema(mode: TempoAccessMode) {
   const { db } = getBindings();
+  const tables = getTableNames(mode);
   await db.batch([
     db.prepare(`
-      CREATE TABLE IF NOT EXISTS practice_folders (
+      CREATE TABLE IF NOT EXISTS ${tables.folders} (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         section TEXT NOT NULL CHECK (section IN ('warmup', 'practice', 'personal')),
@@ -100,7 +127,7 @@ async function initializeLibrarySchema() {
       )
     `),
     db.prepare(`
-      CREATE TABLE IF NOT EXISTS practice_files (
+      CREATE TABLE IF NOT EXISTS ${tables.files} (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         content_type TEXT NOT NULL,
@@ -113,17 +140,23 @@ async function initializeLibrarySchema() {
     `),
   ]);
 
-  const columns = await db.prepare("PRAGMA table_info(practice_files)").all<{ name: string }>();
+  const columns = await db.prepare(`PRAGMA table_info(${tables.files})`).all<{ name: string }>();
   if (!columns.results.some((column) => column.name === "folder_id")) {
-    await db.prepare("ALTER TABLE practice_files ADD COLUMN folder_id TEXT").run();
+    await db.prepare(`ALTER TABLE ${tables.files} ADD COLUMN folder_id TEXT`).run();
   }
 
-  await migrateLegacySectionConstraints(db);
+  await migrateLegacySectionConstraints(db, mode);
 
   await db.batch([
-    db.prepare("CREATE INDEX IF NOT EXISTS practice_folders_section_idx ON practice_folders(section)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS practice_files_section_idx ON practice_files(section)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS practice_files_folder_idx ON practice_files(folder_id)"),
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS ${tables.folderSectionIndex} ON ${tables.folders}(section)`,
+    ),
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS ${tables.fileSectionIndex} ON ${tables.files}(section)`,
+    ),
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS ${tables.fileFolderIndex} ON ${tables.files}(folder_id)`,
+    ),
     db.prepare("PRAGMA optimize"),
   ]);
 }
@@ -132,21 +165,26 @@ function needsSectionConstraintMigration(sql: string | null | undefined) {
   return Boolean(sql && /\bCHECK\s*\(/i.test(sql) && !/['"]personal['"]/i.test(sql));
 }
 
-async function migrateLegacySectionConstraints(db: D1Database) {
+async function migrateLegacySectionConstraints(db: D1Database, mode: TempoAccessMode) {
+  const tables = getTableNames(mode);
+  const folderUpgradeTable = `${tables.folders}_section_upgrade`;
+  const fileUpgradeTable = `${tables.files}_section_upgrade`;
   const [folderSchema, fileSchema] = await Promise.all([
     db
-      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'practice_folders'")
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .bind(tables.folders)
       .first<{ sql: string | null }>(),
     db
-      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'practice_files'")
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .bind(tables.files)
       .first<{ sql: string | null }>(),
   ]);
 
   if (needsSectionConstraintMigration(folderSchema?.sql)) {
     await db.batch([
-      db.prepare("DROP TABLE IF EXISTS practice_folders_section_upgrade"),
+      db.prepare(`DROP TABLE IF EXISTS ${folderUpgradeTable}`),
       db.prepare(`
-        CREATE TABLE practice_folders_section_upgrade (
+        CREATE TABLE ${folderUpgradeTable} (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           section TEXT NOT NULL CHECK (section IN ('warmup', 'practice', 'personal')),
@@ -155,19 +193,19 @@ async function migrateLegacySectionConstraints(db: D1Database) {
         )
       `),
       db.prepare(`
-        INSERT INTO practice_folders_section_upgrade (id, name, section, created_at, updated_at)
-        SELECT id, name, section, created_at, updated_at FROM practice_folders
+        INSERT INTO ${folderUpgradeTable} (id, name, section, created_at, updated_at)
+        SELECT id, name, section, created_at, updated_at FROM ${tables.folders}
       `),
-      db.prepare("DROP TABLE practice_folders"),
-      db.prepare("ALTER TABLE practice_folders_section_upgrade RENAME TO practice_folders"),
+      db.prepare(`DROP TABLE ${tables.folders}`),
+      db.prepare(`ALTER TABLE ${folderUpgradeTable} RENAME TO ${tables.folders}`),
     ]);
   }
 
   if (needsSectionConstraintMigration(fileSchema?.sql)) {
     await db.batch([
-      db.prepare("DROP TABLE IF EXISTS practice_files_section_upgrade"),
+      db.prepare(`DROP TABLE IF EXISTS ${fileUpgradeTable}`),
       db.prepare(`
-        CREATE TABLE practice_files_section_upgrade (
+        CREATE TABLE ${fileUpgradeTable} (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           content_type TEXT NOT NULL,
@@ -179,47 +217,49 @@ async function migrateLegacySectionConstraints(db: D1Database) {
         )
       `),
       db.prepare(`
-        INSERT INTO practice_files_section_upgrade
+        INSERT INTO ${fileUpgradeTable}
           (id, name, content_type, size, section, folder_id, storage_key, created_at)
         SELECT id, name, content_type, size, section, folder_id, storage_key, created_at
-        FROM practice_files
+        FROM ${tables.files}
       `),
-      db.prepare("DROP TABLE practice_files"),
-      db.prepare("ALTER TABLE practice_files_section_upgrade RENAME TO practice_files"),
+      db.prepare(`DROP TABLE ${tables.files}`),
+      db.prepare(`ALTER TABLE ${fileUpgradeTable} RENAME TO ${tables.files}`),
     ]);
   }
 }
 
-export function ensureLibrarySchema() {
-  if (!schemaReady) {
-    schemaReady = initializeLibrarySchema().catch((error) => {
-      schemaReady = null;
+export function ensureLibrarySchema(mode: TempoAccessMode = "owner") {
+  if (!schemaReady[mode]) {
+    schemaReady[mode] = initializeLibrarySchema(mode).catch((error) => {
+      delete schemaReady[mode];
       throw error;
     });
   }
-  return schemaReady;
+  return schemaReady[mode];
 }
 
-export async function listLibraryFolders() {
-  await ensureLibrarySchema();
+export async function listLibraryFolders(mode: TempoAccessMode = "owner") {
+  await ensureLibrarySchema(mode);
   const { db } = getBindings();
+  const { folders } = getTableNames(mode);
   const result = await db
     .prepare(`
       SELECT id, name, section, created_at, updated_at
-      FROM practice_folders
+      FROM ${folders}
       ORDER BY name COLLATE NOCASE ASC, created_at ASC
     `)
     .all<FolderRow>();
   return result.results.map(mapFolderRow);
 }
 
-export async function getLibraryFolder(id: string) {
-  await ensureLibrarySchema();
+export async function getLibraryFolder(id: string, mode: TempoAccessMode = "owner") {
+  await ensureLibrarySchema(mode);
   const { db } = getBindings();
+  const { folders } = getTableNames(mode);
   const row = await db
     .prepare(`
       SELECT id, name, section, created_at, updated_at
-      FROM practice_folders
+      FROM ${folders}
       WHERE id = ?
     `)
     .bind(id)
@@ -227,12 +267,18 @@ export async function getLibraryFolder(id: string) {
   return row ? mapFolderRow(row) : null;
 }
 
-async function folderNameExists(name: string, section: LibrarySection, exceptId?: string) {
+async function folderNameExists(
+  name: string,
+  section: LibrarySection,
+  exceptId: string | undefined,
+  mode: TempoAccessMode,
+) {
   const { db } = getBindings();
+  const { folders } = getTableNames(mode);
   const row = await db
     .prepare(`
       SELECT id
-      FROM practice_folders
+      FROM ${folders}
       WHERE section = ? AND lower(name) = lower(?) AND (? IS NULL OR id != ?)
       LIMIT 1
     `)
@@ -241,16 +287,20 @@ async function folderNameExists(name: string, section: LibrarySection, exceptId?
   return Boolean(row);
 }
 
-export async function createLibraryFolder(folder: LibraryFolderRecord) {
-  await ensureLibrarySchema();
-  if (await folderNameExists(folder.name, folder.section)) {
+export async function createLibraryFolder(
+  folder: LibraryFolderRecord,
+  mode: TempoAccessMode = "owner",
+) {
+  await ensureLibrarySchema(mode);
+  if (await folderNameExists(folder.name, folder.section, undefined, mode)) {
     throw new Error("כבר קיימת תיקייה בשם הזה.");
   }
 
   const { db } = getBindings();
+  const { folders } = getTableNames(mode);
   await db
     .prepare(`
-      INSERT INTO practice_folders (id, name, section, created_at, updated_at)
+      INSERT INTO ${folders} (id, name, section, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?)
     `)
     .bind(folder.id, folder.name, folder.section, folder.createdAt, folder.updatedAt)
@@ -261,59 +311,64 @@ export async function createLibraryFolder(folder: LibraryFolderRecord) {
 export async function updateLibraryFolder(
   id: string,
   changes: { name?: string; section?: LibrarySection },
+  mode: TempoAccessMode = "owner",
 ) {
-  const current = await getLibraryFolder(id);
+  const current = await getLibraryFolder(id, mode);
   if (!current) return null;
 
   const nextName = changes.name ?? current.name;
   const nextSection = changes.section ?? current.section;
-  if (await folderNameExists(nextName, nextSection, id)) {
+  if (await folderNameExists(nextName, nextSection, id, mode)) {
     throw new Error("כבר קיימת תיקייה בשם הזה.");
   }
 
   const updatedAt = new Date().toISOString();
   const { db } = getBindings();
+  const { folders, files } = getTableNames(mode);
   await db.batch([
     db
-      .prepare("UPDATE practice_folders SET name = ?, section = ?, updated_at = ? WHERE id = ?")
+      .prepare(`UPDATE ${folders} SET name = ?, section = ?, updated_at = ? WHERE id = ?`)
       .bind(nextName, nextSection, updatedAt, id),
-    db.prepare("UPDATE practice_files SET section = ? WHERE folder_id = ?").bind(nextSection, id),
+    db.prepare(`UPDATE ${files} SET section = ? WHERE folder_id = ?`).bind(nextSection, id),
   ]);
-  return getLibraryFolder(id);
+  return getLibraryFolder(id, mode);
 }
 
-export async function deleteLibraryFolder(id: string) {
-  const current = await getLibraryFolder(id);
+export async function deleteLibraryFolder(id: string, mode: TempoAccessMode = "owner") {
+  const current = await getLibraryFolder(id, mode);
   if (!current) return false;
 
   const { db } = getBindings();
+  const { folders, files } = getTableNames(mode);
   await db.batch([
-    db.prepare("UPDATE practice_files SET folder_id = NULL WHERE folder_id = ?").bind(id),
-    db.prepare("DELETE FROM practice_folders WHERE id = ?").bind(id),
+    db.prepare(`UPDATE ${files} SET folder_id = NULL WHERE folder_id = ?`).bind(id),
+    db.prepare(`DELETE FROM ${folders} WHERE id = ?`).bind(id),
   ]);
   return true;
 }
 
-export async function listLibraryFiles() {
-  await ensureLibrarySchema();
+export async function listLibraryFiles(mode: TempoAccessMode = "owner") {
+  await ensureLibrarySchema(mode);
   const { db } = getBindings();
+  const { files } = getTableNames(mode);
   const result = await db
     .prepare(`
       SELECT id, name, content_type, size, section, folder_id, storage_key, created_at
-      FROM practice_files
+      FROM ${files}
       ORDER BY created_at DESC, name COLLATE NOCASE ASC
     `)
     .all<LibraryRow>();
   return result.results.map(mapFileRow);
 }
 
-export async function getLibraryFile(id: string) {
-  await ensureLibrarySchema();
+export async function getLibraryFile(id: string, mode: TempoAccessMode = "owner") {
+  await ensureLibrarySchema(mode);
   const { db } = getBindings();
+  const { files } = getTableNames(mode);
   const row = await db
     .prepare(`
       SELECT id, name, content_type, size, section, folder_id, storage_key, created_at
-      FROM practice_files
+      FROM ${files}
       WHERE id = ?
     `)
     .bind(id)
@@ -321,12 +376,13 @@ export async function getLibraryFile(id: string) {
   return row ? mapFileRow(row) : null;
 }
 
-export async function addLibraryFile(file: LibraryFileRecord) {
-  await ensureLibrarySchema();
+export async function addLibraryFile(file: LibraryFileRecord, mode: TempoAccessMode = "owner") {
+  await ensureLibrarySchema(mode);
   const { db } = getBindings();
+  const { files } = getTableNames(mode);
   await db
     .prepare(`
-      INSERT INTO practice_files
+      INSERT INTO ${files}
         (id, name, content_type, size, section, folder_id, storage_key, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `)
@@ -347,8 +403,9 @@ export async function addLibraryFile(file: LibraryFileRecord) {
 export async function updateLibraryFile(
   id: string,
   changes: { name?: string; section?: LibrarySection; folderId?: string | null },
+  mode: TempoAccessMode = "owner",
 ) {
-  const current = await getLibraryFile(id);
+  const current = await getLibraryFile(id, mode);
   if (!current) return null;
 
   const nextName = changes.name ?? current.name;
@@ -356,7 +413,7 @@ export async function updateLibraryFile(
   let nextFolderId = changes.folderId === undefined ? current.folderId : changes.folderId;
 
   if (nextFolderId) {
-    const folder = await getLibraryFolder(nextFolderId);
+    const folder = await getLibraryFolder(nextFolderId, mode);
     if (!folder) throw new Error("התיקייה שנבחרה לא נמצאה.");
     nextSection = folder.section;
   } else if (changes.section && changes.section !== current.section) {
@@ -364,19 +421,21 @@ export async function updateLibraryFile(
   }
 
   const { db } = getBindings();
+  const { files } = getTableNames(mode);
   await db
-    .prepare("UPDATE practice_files SET name = ?, section = ?, folder_id = ? WHERE id = ?")
+    .prepare(`UPDATE ${files} SET name = ?, section = ?, folder_id = ? WHERE id = ?`)
     .bind(nextName, nextSection, nextFolderId, id)
     .run();
-  return getLibraryFile(id);
+  return getLibraryFile(id, mode);
 }
 
-export async function deleteLibraryFile(id: string) {
-  const file = await getLibraryFile(id);
+export async function deleteLibraryFile(id: string, mode: TempoAccessMode = "owner") {
+  const file = await getLibraryFile(id, mode);
   if (!file) return false;
 
   const { db, storage } = getBindings();
+  const { files } = getTableNames(mode);
   await storage.delete(file.storageKey);
-  await db.prepare("DELETE FROM practice_files WHERE id = ?").bind(id).run();
+  await db.prepare(`DELETE FROM ${files} WHERE id = ?`).bind(id).run();
   return true;
 }

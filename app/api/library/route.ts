@@ -2,14 +2,17 @@ import {
   addLibraryFile,
   deleteLibraryFile,
   getLibraryStorage,
+  getLibraryStorageKey,
   getLibraryFile,
   getLibraryFolder,
   listLibraryFiles,
   listLibraryFolders,
   updateLibraryFile,
   isLibrarySection,
+  type LibraryFileRecord,
   type LibrarySection,
 } from "../../../db/library";
+import { tempoAccessModeFromRequest } from "../../../db/schema";
 
 // Workers KV limits a single value to 25 MiB. Keep headroom for platform
 // validation and fail before attempting a write that KV cannot accept.
@@ -45,11 +48,12 @@ function errorResponse(error: unknown) {
 
 export async function GET(request: Request) {
   try {
+    const accessMode = tempoAccessModeFromRequest(request);
     const url = new URL(request.url);
     const fileId = url.searchParams.get("file");
 
     if (fileId) {
-      const record = await getLibraryFile(fileId);
+      const record = await getLibraryFile(fileId, accessMode);
       if (!record) return Response.json({ error: "הקובץ לא נמצא." }, { status: 404 });
 
       const body = await getLibraryStorage().get(record.storageKey, { type: "stream" });
@@ -63,8 +67,14 @@ export async function GET(request: Request) {
       return new Response(body, { headers });
     }
 
-    const [files, folders] = await Promise.all([listLibraryFiles(), listLibraryFolders()]);
-    return Response.json({ files: files.map((file) => publicFile(file)), folders });
+    const [files, folders] = await Promise.all([
+      listLibraryFiles(accessMode),
+      listLibraryFolders(accessMode),
+    ]);
+    return Response.json({
+      files: files.map((file: LibraryFileRecord) => publicFile(file)),
+      folders,
+    });
   } catch (error) {
     return errorResponse(error);
   }
@@ -72,20 +82,22 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const accessMode = tempoAccessModeFromRequest(request);
     const formData = await request.formData();
     const upload = formData.get("file");
-    let section = formData.get("section");
+    const section = formData.get("section");
     const requestedFolderId = formData.get("folderId");
     const folderId = typeof requestedFolderId === "string" && requestedFolderId ? requestedFolderId : null;
 
     if (!(upload instanceof File) || !isLibrarySection(section)) {
       return Response.json({ error: "יש לבחור קובץ וקטגוריה." }, { status: 400 });
     }
+    let selectedSection: LibrarySection = section;
 
     if (folderId) {
-      const folder = await getLibraryFolder(folderId);
+      const folder = await getLibraryFolder(folderId, accessMode);
       if (!folder) return Response.json({ error: "התיקייה שנבחרה לא נמצאה." }, { status: 400 });
-      section = folder.section;
+      selectedSection = folder.section;
     }
 
     const contentType = normalizedContentType(upload);
@@ -97,7 +109,7 @@ export async function POST(request: Request) {
     }
 
     const id = crypto.randomUUID();
-    const storageKey = `practice-library/${id}`;
+    const storageKey = getLibraryStorageKey(id, accessMode);
     const name = upload.name.trim().slice(0, 180) || "קובץ ללא שם";
     const createdAt = new Date().toISOString();
     const storage = getLibraryStorage();
@@ -105,16 +117,19 @@ export async function POST(request: Request) {
     await storage.put(storageKey, upload.stream());
 
     try {
-      const file = await addLibraryFile({
-        id,
-        name,
-        contentType,
-        size: upload.size,
-        section,
-        folderId,
-        storageKey,
-        createdAt,
-      });
+      const file = await addLibraryFile(
+        {
+          id,
+          name,
+          contentType,
+          size: upload.size,
+          section: selectedSection,
+          folderId,
+          storageKey,
+          createdAt,
+        },
+        accessMode,
+      );
       return Response.json({ file: publicFile(file) }, { status: 201 });
     } catch (error) {
       await storage.delete(storageKey);
@@ -127,6 +142,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const accessMode = tempoAccessModeFromRequest(request);
     const payload = (await request.json()) as {
       id?: unknown;
       name?: unknown;
@@ -164,7 +180,7 @@ export async function PATCH(request: Request) {
       changes.folderId = typeof payload.folderId === "string" && payload.folderId ? payload.folderId : null;
     }
 
-    const file = await updateLibraryFile(payload.id, changes);
+    const file = await updateLibraryFile(payload.id, changes, accessMode);
     if (!file) return Response.json({ error: "הקובץ לא נמצא." }, { status: 404 });
     return Response.json({ file: publicFile(file) });
   } catch (error) {
@@ -174,10 +190,11 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const accessMode = tempoAccessModeFromRequest(request);
     const id = new URL(request.url).searchParams.get("id");
     if (!id) return Response.json({ error: "חסר מזהה קובץ." }, { status: 400 });
 
-    const deleted = await deleteLibraryFile(id);
+    const deleted = await deleteLibraryFile(id, accessMode);
     if (!deleted) return Response.json({ error: "הקובץ לא נמצא." }, { status: 404 });
     return new Response(null, { status: 204 });
   } catch (error) {

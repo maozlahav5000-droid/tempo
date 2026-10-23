@@ -5,6 +5,7 @@ import {
   listLessonNotes,
   updateLessonNote,
 } from "../../../db/notes";
+import { tempoAccessModeFromRequest } from "../../../db/schema";
 
 const MAX_BODY_LENGTH = 250_000;
 
@@ -28,9 +29,10 @@ function errorResponse(error: unknown) {
   return Response.json({ error: message }, { status: 500 });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    return Response.json({ notes: await listLessonNotes() });
+    const accessMode = tempoAccessModeFromRequest(request);
+    return Response.json({ notes: await listLessonNotes(accessMode) });
   } catch (error) {
     return errorResponse(error);
   }
@@ -38,6 +40,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const accessMode = tempoAccessModeFromRequest(request);
     const payload = (await request.json()) as {
       mode?: unknown;
       title?: unknown;
@@ -61,11 +64,11 @@ export async function POST(request: Request) {
       updatedAt: now,
     };
     if (payload.mode === "legacy-if-empty") {
-      const imported = await importLegacyLessonNoteIfEmpty(note);
+      const imported = await importLegacyLessonNoteIfEmpty(note, accessMode);
       return Response.json(imported, { status: imported.imported ? 201 : 200 });
     }
 
-    await createLessonNote(note);
+    await createLessonNote(note, accessMode);
     return Response.json({ note }, { status: 201 });
   } catch (error) {
     return errorResponse(error);
@@ -74,6 +77,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const accessMode = tempoAccessModeFromRequest(request);
     const payload = (await request.json()) as {
       id?: unknown;
       title?: unknown;
@@ -104,7 +108,7 @@ export async function PATCH(request: Request) {
       changes.bodyHtml = bodyHtml;
     }
 
-    const note = await updateLessonNote(payload.id, changes);
+    const note = await updateLessonNote(payload.id, changes, accessMode);
     if (!note) return Response.json({ error: "השיעור לא נמצא." }, { status: 404 });
     return Response.json({ note });
   } catch (error) {
@@ -114,9 +118,10 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const accessMode = tempoAccessModeFromRequest(request);
     const id = new URL(request.url).searchParams.get("id");
     if (!id) return Response.json({ error: "חסר מזהה שיעור." }, { status: 400 });
-    const deleted = await deleteLessonNote(id);
+    const deleted = await deleteLessonNote(id, accessMode);
     if (!deleted) return Response.json({ error: "השיעור לא נמצא." }, { status: 404 });
     return new Response(null, { status: 204 });
   } catch (error) {

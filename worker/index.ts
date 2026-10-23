@@ -59,23 +59,6 @@ function privateJson(payload: unknown, status = 200) {
   });
 }
 
-function guestApiResponse(url: URL) {
-  if (!url.pathname.startsWith("/api/")) return null;
-  return privateJson({ error: "התוכן הפרטי אינו זמין במצב אורח." }, 403);
-}
-
-function guestPrivatePageResponse() {
-  return new Response("התוכן הפרטי אינו זמין במצב אורח.", {
-    status: 403,
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-      "Referrer-Policy": "no-referrer",
-    },
-  });
-}
-
 function accessRequiredResponse(request: Request) {
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) {
@@ -160,9 +143,10 @@ const worker = {
     const guestToken = env.TEMPO_GUEST_TOKEN?.trim();
     let accessMode: AccessMode = "owner";
 
-    // Keep the first cloud deployment closed even before the secret is added.
-    // Local development remains available without a token.
-    if (!accessToken && url.hostname.endsWith(".workers.dev")) {
+    // Keep every hosted deployment closed even before the secret is added.
+    // Only an explicit local development hostname remains available without a token.
+    const isLocalDevelopment = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    if (!accessToken && !isLocalDevelopment) {
       return accessRequiredResponse(request);
     }
 
@@ -185,14 +169,8 @@ const worker = {
     if (url.pathname === "/api/session" && request.method === "GET") {
       return privateJson({
         mode: accessMode,
-        privateContentAvailable: accessMode === "owner",
+        privateContentAvailable: true,
       });
-    }
-
-    if (accessMode === "guest") {
-      const guestResponse = guestApiResponse(url);
-      if (guestResponse) return guestResponse;
-      if (url.pathname.startsWith("/projects/")) return guestPrivatePageResponse();
     }
 
     if (url.pathname === "/_vinext/image") {
@@ -218,7 +196,13 @@ const worker = {
       return env.ASSETS.fetch(request);
     }
 
-    return handler.fetch(request, env, ctx);
+    // Never trust a client-supplied access-mode header.  The authenticated
+    // cookie is the sole source of truth, and API routes receive that trusted
+    // mode through a freshly constructed Request.
+    const handlerHeaders = new Headers(request.headers);
+    handlerHeaders.set("X-Tempo-Access-Mode", accessMode);
+    const handlerRequest = new Request(request, { headers: handlerHeaders });
+    return handler.fetch(handlerRequest, env, ctx);
   },
 };
 

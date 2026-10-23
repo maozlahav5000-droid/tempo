@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import type { TempoAccessMode } from "./schema";
 
 export type LessonNoteRecord = {
   id: string;
@@ -22,7 +23,22 @@ type NotesBindings = {
   DB?: D1Database;
 };
 
-let schemaReady: Promise<void> | null = null;
+const NOTES_TABLES = {
+  owner: {
+    notes: "lesson_notes",
+    sortIndex: "lesson_notes_sort_idx",
+  },
+  guest: {
+    notes: "guest_lesson_notes",
+    sortIndex: "guest_lesson_notes_sort_idx",
+  },
+} as const;
+
+const schemaReady: Partial<Record<TempoAccessMode, Promise<void>>> = {};
+
+function getTableNames(mode: TempoAccessMode) {
+  return NOTES_TABLES[mode];
+}
 
 function getDatabase() {
   const bindings = env as unknown as NotesBindings;
@@ -41,11 +57,12 @@ function mapLessonNote(row: LessonNoteRow): LessonNoteRecord {
   };
 }
 
-async function initializeNotesSchema() {
+async function initializeNotesSchema(mode: TempoAccessMode) {
   const db = getDatabase();
+  const tables = getTableNames(mode);
   await db.batch([
     db.prepare(`
-      CREATE TABLE IF NOT EXISTS lesson_notes (
+      CREATE TABLE IF NOT EXISTS ${tables.notes} (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         lesson_date TEXT NOT NULL DEFAULT '',
@@ -54,27 +71,30 @@ async function initializeNotesSchema() {
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `),
-    db.prepare("CREATE INDEX IF NOT EXISTS lesson_notes_sort_idx ON lesson_notes(lesson_date, updated_at)"),
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS ${tables.sortIndex} ON ${tables.notes}(lesson_date, updated_at)`,
+    ),
     db.prepare("PRAGMA optimize"),
   ]);
 }
 
-export function ensureNotesSchema() {
-  if (!schemaReady) {
-    schemaReady = initializeNotesSchema().catch((error) => {
-      schemaReady = null;
+export function ensureNotesSchema(mode: TempoAccessMode = "owner") {
+  if (!schemaReady[mode]) {
+    schemaReady[mode] = initializeNotesSchema(mode).catch((error) => {
+      delete schemaReady[mode];
       throw error;
     });
   }
-  return schemaReady;
+  return schemaReady[mode];
 }
 
-export async function listLessonNotes() {
-  await ensureNotesSchema();
+export async function listLessonNotes(mode: TempoAccessMode = "owner") {
+  await ensureNotesSchema(mode);
+  const { notes } = getTableNames(mode);
   const result = await getDatabase()
     .prepare(`
       SELECT id, title, lesson_date, body_html, created_at, updated_at
-      FROM lesson_notes
+      FROM ${notes}
       ORDER BY
         CASE WHEN lesson_date = '' THEN 1 ELSE 0 END,
         lesson_date ASC,
@@ -85,12 +105,13 @@ export async function listLessonNotes() {
   return result.results.map(mapLessonNote);
 }
 
-export async function getLessonNote(id: string) {
-  await ensureNotesSchema();
+export async function getLessonNote(id: string, mode: TempoAccessMode = "owner") {
+  await ensureNotesSchema(mode);
+  const { notes } = getTableNames(mode);
   const row = await getDatabase()
     .prepare(`
       SELECT id, title, lesson_date, body_html, created_at, updated_at
-      FROM lesson_notes
+      FROM ${notes}
       WHERE id = ?
     `)
     .bind(id)
@@ -98,11 +119,12 @@ export async function getLessonNote(id: string) {
   return row ? mapLessonNote(row) : null;
 }
 
-export async function createLessonNote(note: LessonNoteRecord) {
-  await ensureNotesSchema();
+export async function createLessonNote(note: LessonNoteRecord, mode: TempoAccessMode = "owner") {
+  await ensureNotesSchema(mode);
+  const { notes } = getTableNames(mode);
   await getDatabase()
     .prepare(`
-      INSERT INTO lesson_notes (id, title, lesson_date, body_html, created_at, updated_at)
+      INSERT INTO ${notes} (id, title, lesson_date, body_html, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `)
     .bind(note.id, note.title, note.lessonDate, note.bodyHtml, note.createdAt, note.updatedAt)
@@ -110,13 +132,17 @@ export async function createLessonNote(note: LessonNoteRecord) {
   return note;
 }
 
-export async function importLegacyLessonNoteIfEmpty(note: LessonNoteRecord) {
-  await ensureNotesSchema();
+export async function importLegacyLessonNoteIfEmpty(
+  note: LessonNoteRecord,
+  mode: TempoAccessMode = "owner",
+) {
+  await ensureNotesSchema(mode);
+  const { notes } = getTableNames(mode);
   const result = await getDatabase()
     .prepare(`
-      INSERT INTO lesson_notes (id, title, lesson_date, body_html, created_at, updated_at)
+      INSERT INTO ${notes} (id, title, lesson_date, body_html, created_at, updated_at)
       SELECT ?, ?, ?, ?, ?, ?
-      WHERE NOT EXISTS (SELECT 1 FROM lesson_notes LIMIT 1)
+      WHERE NOT EXISTS (SELECT 1 FROM ${notes} LIMIT 1)
     `)
     .bind(note.id, note.title, note.lessonDate, note.bodyHtml, note.createdAt, note.updatedAt)
     .run();
@@ -129,8 +155,9 @@ export async function importLegacyLessonNoteIfEmpty(note: LessonNoteRecord) {
 export async function updateLessonNote(
   id: string,
   changes: Partial<Pick<LessonNoteRecord, "title" | "lessonDate" | "bodyHtml">>,
+  mode: TempoAccessMode = "owner",
 ) {
-  await ensureNotesSchema();
+  await ensureNotesSchema(mode);
   const assignments: string[] = [];
   const values: string[] = [];
   if (changes.title !== undefined) {
@@ -145,20 +172,22 @@ export async function updateLessonNote(
     assignments.push("body_html = ?");
     values.push(changes.bodyHtml);
   }
-  if (!assignments.length) return getLessonNote(id);
+  if (!assignments.length) return getLessonNote(id, mode);
 
   const updatedAt = new Date().toISOString();
   assignments.push("updated_at = ?");
   values.push(updatedAt, id);
+  const { notes } = getTableNames(mode);
   const result = await getDatabase()
-    .prepare(`UPDATE lesson_notes SET ${assignments.join(", ")} WHERE id = ?`)
+    .prepare(`UPDATE ${notes} SET ${assignments.join(", ")} WHERE id = ?`)
     .bind(...values)
     .run();
-  return result.meta.changes ? getLessonNote(id) : null;
+  return result.meta.changes ? getLessonNote(id, mode) : null;
 }
 
-export async function deleteLessonNote(id: string) {
-  await ensureNotesSchema();
-  const result = await getDatabase().prepare("DELETE FROM lesson_notes WHERE id = ?").bind(id).run();
+export async function deleteLessonNote(id: string, mode: TempoAccessMode = "owner") {
+  await ensureNotesSchema(mode);
+  const { notes } = getTableNames(mode);
+  const result = await getDatabase().prepare(`DELETE FROM ${notes} WHERE id = ?`).bind(id).run();
   return Boolean(result.meta.changes);
 }

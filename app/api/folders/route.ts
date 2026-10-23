@@ -6,6 +6,7 @@ import {
   updateLibraryFolder,
   type LibrarySection,
 } from "../../../db/library";
+import { tempoAccessModeFromRequest } from "../../../db/schema";
 
 function normalizeName(value: unknown) {
   return typeof value === "string" ? value.trim().slice(0, 80) : "";
@@ -17,9 +18,10 @@ function errorResponse(error: unknown) {
   return Response.json({ error: message }, { status });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    return Response.json({ folders: await listLibraryFolders() });
+    const accessMode = tempoAccessModeFromRequest(request);
+    return Response.json({ folders: await listLibraryFolders(accessMode) });
   } catch (error) {
     return errorResponse(error);
   }
@@ -27,6 +29,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const accessMode = tempoAccessModeFromRequest(request);
     const payload = (await request.json()) as { name?: unknown; section?: unknown };
     const name = normalizeName(payload.name);
     if (!name || !isLibrarySection(payload.section)) {
@@ -34,13 +37,16 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const folder = await createLibraryFolder({
-      id: crypto.randomUUID(),
-      name,
-      section: payload.section,
-      createdAt: now,
-      updatedAt: now,
-    });
+    const folder = await createLibraryFolder(
+      {
+        id: crypto.randomUUID(),
+        name,
+        section: payload.section,
+        createdAt: now,
+        updatedAt: now,
+      },
+      accessMode,
+    );
     return Response.json({ folder }, { status: 201 });
   } catch (error) {
     return errorResponse(error);
@@ -49,6 +55,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const accessMode = tempoAccessModeFromRequest(request);
     const payload = (await request.json()) as { id?: unknown; name?: unknown; section?: unknown };
     if (typeof payload.id !== "string") {
       return Response.json({ error: "חסר מזהה תיקייה." }, { status: 400 });
@@ -73,7 +80,7 @@ export async function PATCH(request: Request) {
       changes.section = payload.section;
     }
 
-    const folder = await updateLibraryFolder(payload.id, changes);
+    const folder = await updateLibraryFolder(payload.id, changes, accessMode);
     if (!folder) return Response.json({ error: "התיקייה לא נמצאה." }, { status: 404 });
     return Response.json({ folder });
   } catch (error) {
@@ -83,10 +90,11 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const accessMode = tempoAccessModeFromRequest(request);
     const id = new URL(request.url).searchParams.get("id");
     if (!id) return Response.json({ error: "חסר מזהה תיקייה." }, { status: 400 });
 
-    const deleted = await deleteLibraryFolder(id);
+    const deleted = await deleteLibraryFolder(id, accessMode);
     if (!deleted) return Response.json({ error: "התיקייה לא נמצאה." }, { status: 404 });
     return new Response(null, { status: 204 });
   } catch (error) {
