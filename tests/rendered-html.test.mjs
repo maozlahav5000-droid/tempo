@@ -280,7 +280,7 @@ test("labels the song area consistently and keeps the internal project routes st
     "utf8",
   );
 
-  assert.match(page, /\{ id: "projects", label: "שירים", icon: "▦" \}/);
+  assert.match(page, /\{ id: "projects", label: "שירים" \}/);
   assert.match(projectsView, /activeProjectData\?\.title \?\? "שירים"/);
   assert.match(projectsView, /כל השירים/);
   assert.match(projectsView, /\{PROJECTS\.length\} שירים/);

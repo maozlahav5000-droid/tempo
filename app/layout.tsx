@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Heebo } from "next/font/google";
 import "./globals.css";
+import "./studio.css";
+import "./instrument.css";
+import "./practice-views.css";
 
 const heebo = Heebo({
   variable: "--font-heebo",
@@ -21,7 +24,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0a0f0d",
+  themeColor: "#10151e",
 };
 
 export default function RootLayout({
