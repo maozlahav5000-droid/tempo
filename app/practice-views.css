@@ -238,7 +238,7 @@
 @media (min-width: 841px) {
   .notes-view :is(.lesson-details-card, .notes-paper) { grid-row: auto; }
   .sheet-view :is(.sheet-layout.no-file, .sheet-layout.has-file) { grid-template-areas: "viewer library"; }
-  .sheet-view .floating-metronome { inset-block-start: calc(var(--studio-header-height) + 112px); inset-block-end: auto; }
+  .sheet-view .floating-metronome { inset-block-start: calc(var(--studio-header-height) + 164px); inset-block-end: auto; }
 }
 @media (max-width: 980px) {
   .sheet-view .sheet-frame.expanded .sheet-canvas.has-mobile-pdf-link {
