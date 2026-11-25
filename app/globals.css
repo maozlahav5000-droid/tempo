@@ -717,8 +717,20 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   }
 
   .metronome-view .primary-action { min-height: 56px; flex: 0 0 auto; }
-  .metronome-view .visual-card { padding: clamp(20px, 3vh, 34px); }
-  .metronome-view .full-beat-circle { width: min(34vw, calc(100dvh - 210px), 420px); max-width: 100%; }
+  .metronome-view .visual-card { container-type: size; padding: clamp(20px, 3vh, 34px); }
+  .metronome-view .full-beat-circle {
+    /* Fit the panel in both directions, reserving space for the beat caption. */
+    width: min(96cqw, calc(100cqh - 3rem));
+    flex: none;
+    container-type: inline-size;
+  }
+  .full-beat-circle :is(.beat-track, .beat-segment) {
+    mask-image: radial-gradient(farthest-side, transparent calc(88.57% - 1px), #000 88.57%);
+  }
+  .full-beat-circle .beat-core { inset: 10.48%; }
+  .full-beat-circle .circle-control { width: 22.4%; height: auto; aspect-ratio: 1; }
+  .full-beat-circle .play-symbol { margin-left: 1.2cqi; border-block-width: 2.86cqi; border-left-width: 4.52cqi; }
+  .full-beat-circle .pause-symbol { width: 4.29cqi; height: 6.19cqi; border-inline-width: 1.43cqi; }
   .metronome-view .visual-card > p { margin-block-start: clamp(10px, 2vh, 22px); font-size: 0.84rem; }
 }
 
