@@ -648,15 +648,27 @@ button, a { touch-action: manipulation; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, label[for]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 @media (min-width: 981px) {
-  .view-section.sheet-view {
-    width: min(100%, 1840px);
-    padding: 28px clamp(18px, 2vw, 36px) 40px;
+  body { scrollbar-gutter: auto; }
+
+  .view-section {
+    width: 100%;
+    padding: clamp(14px, 2vh, 22px) clamp(14px, 1.25vw, 24px);
   }
 
+  .notes-view, .sheet-view, .projects-view { display: flex; flex-direction: column; }
+  .notes-grid, .sheet-layout { flex: 1; }
+  .projects-grid { max-inline-size: none; }
+  .projects-view:has(.project-workspace), .sheet-view { height: 100dvh; }
+  .project-workspace { display: flex; flex: 1; flex-direction: column; }
+  .project-frame { flex: 1; min-block-size: 0; }
+
   .sheet-view .page-heading { margin-block-end: 18px; }
-  .sheet-canvas { min-height: max(680px, calc(100dvh - 170px)); padding: 12px; }
-  .sheet-canvas object { min-height: max(680px, calc(100dvh - 170px)); }
+  .sheet-layout { min-height: 0; }
+  .library-panel { min-height: 0; overflow-y: auto; }
+  .sheet-canvas { min-height: 0; padding: 12px; }
+  .sheet-canvas object { min-height: 0; }
   .sheet-canvas > img { width: 100%; max-width: none; max-height: none; }
+  .floating-metronome { inset-block-start: 13rem; }
 
   .metronome-view {
     display: grid;
@@ -665,8 +677,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
     grid-template-rows: auto minmax(0, 1fr);
     gap: clamp(14px, 2vh, 22px);
     overflow: auto;
-    padding-block: clamp(18px, 3vh, 30px);
-    padding-inline: clamp(24px, 4vw, 56px);
   }
 
   .metronome-view .page-heading { min-height: 54px; margin: 0; }
@@ -718,7 +728,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .brand-block { justify-content: center; padding-inline: 0; }
   .brand-block > div, .sidebar-tip, .nav-label { display: none; }
   .nav-button { justify-content: center; padding-inline: 0; }
-  .metronome-view { padding-inline: 24px; }
   .metronome-grid { grid-template-columns: minmax(365px, 0.82fr) minmax(420px, 1.18fr); gap: 16px; }
   .sheet-layout { grid-template-columns: minmax(0, 1fr) minmax(250px, 280px); gap: 12px; }
 }
