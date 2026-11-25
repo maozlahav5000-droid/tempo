@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ProjectsView, { type ProjectId } from "./components/ProjectsView";
-import { FullscreenButton, StudioIcon } from "./components/StudioControls";
 import { chooseInitialLibrarySelection } from "./library-selection.mjs";
 import { secondsPerBeat } from "./metronome-timing.mjs";
 
@@ -374,6 +373,7 @@ function BeatVisual({ beatsPerBar, currentBeat, isPlaying, compact = false }: Be
           className={`beat-segment ${isPlaying && currentBeat === beat ? "active" : ""}`}
           style={{
             "--segment-angle": `${beat * (360 / beatsPerBar)}deg`,
+            "--segment-color": beat === 0 ? "#ff7b72" : "#45d5b0",
           } as React.CSSProperties}
         />
       ))}
@@ -576,8 +576,8 @@ export default function Home() {
     const viewportHeight = visualViewport?.height ?? window.innerHeight;
     const viewportRight = viewportLeft + viewportWidth;
     const viewportBottom = viewportTop + viewportHeight;
-    const mobileNav = window.matchMedia("(max-width: 700px)").matches
-      ? document.querySelector<HTMLElement>(".studio-tabs")
+    const mobileNav = window.matchMedia("(max-width: 980px)").matches
+      ? document.querySelector<HTMLElement>(".studio-sidebar")
       : null;
     const mobileNavTop = mobileNav?.getBoundingClientRect().top;
     const safeViewportBottom = viewportBottom - safeAreaBottom;
@@ -1629,52 +1629,48 @@ export default function Home() {
         ? "השמירה נכשלה"
         : "נשמר אוטומטית";
 
-  const navItems: Array<{ id: ViewName; label: string }> = [
-    { id: "metronome", label: "מטרונום" },
-    { id: "notes", label: "שיעורים" },
-    { id: "sheet", label: "תווים" },
-    { id: "projects", label: "שירים" },
+  const navItems: Array<{ id: ViewName; label: string; icon: string }> = [
+    { id: "metronome", label: "מטרונום", icon: "◉" },
+    { id: "notes", label: "שיעורים", icon: "≡" },
+    { id: "sheet", label: "תווים", icon: "♬" },
+    { id: "projects", label: "שירים", icon: "▦" },
   ];
 
   return (
     <main className="studio-shell">
-      <div className="practice-studio">
-        <header className="studio-bar">
-          <div className="studio-signature" dir="ltr">
-            <svg viewBox="0 0 32 32" width="32" height="32" fill="none" aria-hidden="true">
-              <rect width="32" height="32" rx="10" fill="currentColor"/>
-              <path d="M7 20.5c2.5 0 3-3 4.4-7.8 1.2-4 2.4-4.1 2.4.4v6.4c0 3.8 1.7 3.7 3-.9l2.2-7.3c1.5-4.6 3.2-4.3 3.2-.2v6.3c0 2.5.7 3.1 2.9 1.4" stroke="#102032" strokeWidth="2.4" strokeLinecap="round"/>
-            </svg>
-            <b>TEMPO</b>
+      <div className="studio-layout">
+        <aside className="studio-sidebar">
+          <div className="brand-block">
+            <span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>
+            <div><b>TEMPO</b><small>סביבת תרגול</small></div>
           </div>
 
-          <nav className="studio-tabs" aria-label="ניווט ראשי">
+          <nav className="side-nav" aria-label="ניווט ראשי">
             {navItems.map((item) => (
               <button
                 type="button"
                 key={item.id}
-                className="studio-tab"
+                className={`nav-button ${activeView === item.id ? "active" : ""}`}
                 onClick={() => {
                   setActiveView(item.id);
-                  if (item.id !== activeView) window.scrollTo({ top: 0, behavior: "instant" });
                   if (item.id !== "sheet") setIsSheetExpanded(false);
                 }}
                 aria-current={activeView === item.id ? "page" : undefined}
               >
-                <StudioIcon name={item.id} />
+                <span className="nav-icon" aria-hidden="true">{item.icon}</span>
                 <span className="nav-label">{item.label}</span>
               </button>
             ))}
           </nav>
 
-          <FullscreenButton />
-        </header>
+          <p className="sidebar-tip">מקש רווח מפעיל ועוצר את המטרונום</p>
+        </aside>
 
         <div className="studio-content">
           {activeView === "metronome" && (
             <section className="view-section metronome-view" aria-labelledby="metronome-title">
               <header className="page-heading">
-                <h1 id="metronome-title">מטרונום</h1>
+                <div><p>תרגול בקצב שלך</p><h1 id="metronome-title">מטרונום</h1></div>
                 <span className={`playing-status ${isPlaying ? "active" : ""}`} role="status" aria-live="polite">
                   <i />{isPlaying ? "פועל" : "מוכן"}
                 </span>
@@ -1683,7 +1679,7 @@ export default function Home() {
               <div className="metronome-grid">
                 <div className="control-card">
                   <div className="control-section">
-                    <label htmlFor="bpm-main" className="console-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17a9 9 0 1 1 18 0M12 15l4-6M7 17h10" /></svg>מהירות</label>
+                    <label htmlFor="bpm-main">מהירות</label>
                     <div className="tempo-stepper" dir="ltr">
                       <button type="button" onClick={() => updateBpm(bpm - 1)} aria-label="הפחתת BPM">−</button>
                       <div className="tempo-input-wrap">
@@ -1733,6 +1729,17 @@ export default function Home() {
                     />
                     <div className="range-ends" dir="ltr"><span>{MIN_BPM}</span><span>{MAX_BPM}</span></div>
                   </div>
+
+                  <button
+                    type="button"
+                    className={`primary-action quick-start ${isPlaying ? "stop" : ""}`}
+                    onClick={toggleMetronome}
+                    aria-label={isPlaying ? "עצירת המטרונום" : "הפעלת המטרונום"}
+                    aria-pressed={isPlaying}
+                  >
+                    <span className={isPlaying ? "mini-pause" : "mini-play"} aria-hidden="true" />
+                    {isPlaying ? "עצירה" : "התחלה"}
+                  </button>
 
                   <fieldset className="meter-section">
                     <legend>משקל</legend>
@@ -1789,31 +1796,23 @@ export default function Home() {
                 </div>
 
                 <div className="visual-card">
-                  <div className="dial-header">
-                    <span className="dial-caption"><svg viewBox="0 0 28 20" aria-hidden="true"><path d="M1 10h5l2-5 3 12 4-15 3 10 2-2h7" /></svg>תצוגת פעימות</span>
-                    <bdi className="dial-meter">{beatsPerBar}/{beatUnit}</bdi>
+                  <div className="full-beat-circle">
+                    <BeatVisual beatsPerBar={beatsPerBar} currentBeat={currentBeat} isPlaying={isPlaying} />
+                    <button
+                      type="button"
+                      className="circle-control"
+                      onClick={toggleMetronome}
+                      aria-label={isPlaying ? "עצירת המטרונום" : "הפעלת המטרונום"}
+                      aria-pressed={isPlaying}
+                    >
+                      <span className={isPlaying ? "pause-symbol" : "play-symbol"} aria-hidden="true" />
+                    </button>
                   </div>
-                  <div className="dial-field">
-                    <div className="full-beat-circle">
-                      <BeatVisual beatsPerBar={beatsPerBar} currentBeat={currentBeat} isPlaying={isPlaying} />
-                      <button
-                        type="button"
-                        className="circle-control"
-                        onClick={toggleMetronome}
-                        aria-label={isPlaying ? "עצירת המטרונום" : "הפעלת המטרונום"}
-                        title={`${bpm} BPM · ${beatsPerBar}/${beatUnit}`}
-                        aria-pressed={isPlaying}
-                      >
-                        <span className="dial-readout" dir="ltr" aria-hidden="true"><b>{bpm}</b><small>BPM</small></span>
-                        <span className="dial-transport"><span className={isPlaying ? "mini-pause" : "mini-play"} aria-hidden="true" />{isPlaying ? "עצירה" : "התחלה"}</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div className="beat-sequence" aria-label={isPlaying && currentBeat !== null ? `פעימה ${currentBeat + 1} מתוך ${beatsPerBar}` : `${beatsPerBar} פעימות בתיבה`} role="img">
-                    {Array.from({ length: beatsPerBar }, (_, index) => (
-                      <span key={index} aria-hidden="true" className={isPlaying && currentBeat === index ? "current" : ""}>{index + 1}</span>
-                    ))}
-                  </div>
+                  <p dir={isPlaying && currentBeat !== null ? "rtl" : "ltr"}>
+                    {isPlaying && currentBeat !== null
+                      ? `פעימה ${currentBeat + 1} מתוך ${beatsPerBar}`
+                      : `${bpm} BPM · ${beatsPerBar}/${beatUnit}`}
+                  </p>
                 </div>
               </div>
             </section>
@@ -1822,7 +1821,7 @@ export default function Home() {
           {activeView === "notes" && (
             <section className="view-section notes-view" aria-labelledby="notes-title">
               <header className="page-heading">
-                <h1 id="notes-title">שיעורים</h1>
+                <div><p>יומן השיעורים</p><h1 id="notes-title">שיעורים</h1></div>
                 <span className={`local-save-status ${notesStatus}`} role="status"><i />{notesStatusLabel}</span>
               </header>
 
@@ -1858,27 +1857,43 @@ export default function Home() {
                     )}
                   </nav>
 
+                  {activeLesson && (
+                    <div className="lesson-fields">
+                      <span className="card-kicker">פרטי השיעור</span>
+                      <label htmlFor="lesson-title">נושא</label>
+                      <input
+                        id="lesson-title"
+                        type="text"
+                        dir="auto"
+                        maxLength={120}
+                        value={activeLesson.title}
+                        onChange={(event) => updateActiveLesson({ title: event.target.value })}
+                        onBlur={() => void flushLessonSave(activeLesson.id)}
+                        placeholder="לדוגמה: עבודה על קצב"
+                        disabled={notesBusy}
+                      />
+                      <label htmlFor="lesson-date">תאריך</label>
+                      <input
+                        id="lesson-date"
+                        type="date"
+                        dir="ltr"
+                        value={activeLesson.lessonDate}
+                        onChange={(event) => updateActiveLesson({ lessonDate: event.target.value })}
+                        onBlur={() => void flushLessonSave(activeLesson.id)}
+                        disabled={notesBusy}
+                      />
+                      <button type="button" className="delete-lesson-button" onClick={() => void removeActiveLesson()} disabled={notesBusy}>מחיקת השיעור</button>
+                    </div>
+                  )}
                 </aside>
 
                 <article className="notes-paper">
                   {activeLesson ? (
                     <>
                       <div className="paper-heading">
-                        <div className="paper-subject">
-                          <label htmlFor="lesson-title">נושא השיעור</label>
-                          <input id="lesson-title" type="text" dir="auto" maxLength={120}
-                            value={activeLesson.title} placeholder="שיעור ללא שם" disabled={notesBusy}
-                            onChange={(event) => updateActiveLesson({ title: event.target.value })}
-                            onBlur={() => void flushLessonSave(activeLesson.id)} />
-                        </div>
-                        <div className="paper-date">
-                          <label htmlFor="lesson-date">תאריך</label>
-                          <input id="lesson-date" type="date" dir="ltr" value={activeLesson.lessonDate} disabled={notesBusy}
-                            onChange={(event) => updateActiveLesson({ lessonDate: event.target.value })}
-                            onBlur={() => void flushLessonSave(activeLesson.id)} />
-                        </div>
+                        <div><span>הערות השיעור</span><h2><bdi>{activeLesson.title || "שיעור ללא שם"}</bdi></h2></div>
+                        {activeLesson.lessonDate && <time>{formatLessonDate(activeLesson.lessonDate)}</time>}
                       </div>
-                      <h2 className="paper-body-title">הערות השיעור</h2>
                       <RichNotesEditor
                         key={activeLesson.id}
                         initialHtml={activeLesson.bodyHtml}
@@ -1886,9 +1901,6 @@ export default function Home() {
                         onCommit={() => void flushLessonSave(activeLesson.id)}
                         disabled={notesBusy}
                       />
-                      <footer className="paper-footer">
-                        <button type="button" className="delete-lesson-button" onClick={() => void removeActiveLesson()} disabled={notesBusy}>מחיקת השיעור</button>
-                      </footer>
                     </>
                   ) : (
                     <div className="notes-empty-state">
@@ -1905,7 +1917,7 @@ export default function Home() {
           {activeView === "sheet" && (
             <section className="view-section sheet-view" aria-labelledby="sheet-title">
               <header className="page-heading sheet-heading">
-                <h1 id="sheet-title">תווים</h1>
+                <div><p>תרגול מול הדף</p><h1 id="sheet-title">תווים</h1></div>
                 <div className="sheet-heading-actions">
                   <button
                     type="button"
@@ -2139,7 +2151,7 @@ export default function Home() {
 
                 <div ref={sheetFrameRef} className={`sheet-frame ${isSheetExpanded ? "expanded" : ""}`}>
                   <div className="sheet-toolbar">
-                    <span><bdi>{activeSheetFile?.name ?? "תצוגת תווים"}</bdi></span>
+                    <span><bdi>{activeSheetFile?.name ?? `עדיין לא נבחר קובץ עבור ${activeSheetLabel}`}</bdi></span>
                     {activeSheetFile && (
                       <div className="sheet-toolbar-actions">
                         <button
