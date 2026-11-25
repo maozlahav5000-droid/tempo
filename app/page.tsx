@@ -374,7 +374,6 @@ function BeatVisual({ beatsPerBar, currentBeat, isPlaying, compact = false }: Be
           className={`beat-segment ${isPlaying && currentBeat === beat ? "active" : ""}`}
           style={{
             "--segment-angle": `${beat * (360 / beatsPerBar)}deg`,
-            "--segment-color": beat === 0 ? "var(--downbeat)" : "var(--accent)",
           } as React.CSSProperties}
         />
       ))}

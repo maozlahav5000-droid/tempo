@@ -173,7 +173,7 @@
 .sheet-view :is(.metronome-drag-handle, .metronome-size-toggle, .floating-tempo-presets button) { background: var(--panel-soft); }
 .sheet-view .floating-tempo-presets button.active { background: var(--accent); }
 .sheet-view .mini-center:not(.playing) { background: var(--muted); }
-.sheet-view .beat-visual.compact .beat-core { background: var(--page); border-color: var(--line); }
+.sheet-view .beat-visual.compact .beat-core { background: transparent; border: 0; box-shadow: none; }
 
 .projects-view .projects-grid {
   max-inline-size: none;

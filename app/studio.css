@@ -9,6 +9,8 @@
   --accent: #91d9ff;
   --accent-soft: #d3efff;
   --downbeat: #ffc077;
+  --beat-ink: #eee9df;
+  --beat-track: #43505e;
   --studio-header-height: calc(64px + env(safe-area-inset-top, 0px));
   --mobile-nav-height: 0px;
   --workspace-height: calc(100dvh - var(--studio-header-height) - var(--mobile-nav-height));
